@@ -1,0 +1,14 @@
+{
+  "name": "paquant",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "dev": "pnpm --filter @paquant/web dev",
+    "build": "pnpm --filter @paquant/web build",
+    "test": "pnpm --filter @paquant/web test",
+    "lint": "pnpm --filter @paquant/web lint",
+    "typecheck": "pnpm --filter @paquant/web typecheck",
+    "test:e2e": "pnpm --filter @paquant/web test:e2e"
+  }
+}
