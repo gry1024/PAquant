@@ -1,1 +1,1 @@
-"""Compiled Brooks price action knowledge boundaries."""
+"""Brooks source catalog and compiled price action knowledge boundaries."""
