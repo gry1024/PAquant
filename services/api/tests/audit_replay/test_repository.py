@@ -22,6 +22,21 @@ def test_schema_contains_phase_one_tables():
         "llm_usage",
         "journals",
     } <= set(list_tables(connection))
+    assert {
+        "instruments",
+        "sessions",
+        "chart_objects",
+        "ai_traders",
+        "agent_runs",
+        "agent_actions",
+        "simulated_orders",
+        "simulated_trades",
+        "trade_reviews",
+        "knowledge_sources",
+        "knowledge_chunks",
+        "setup_dossiers",
+        "model_calls",
+    } <= set(list_tables(connection))
 
 
 def test_repository_records_analysis_and_model_usage():
@@ -123,3 +138,101 @@ def test_repository_upserts_and_lists_trader_profiles():
     assert rows[0]["id"] == "brooks-generalist"
     assert rows[0]["name"] == "Brooks Generalist"
     assert rows[0]["recent_action"] == "Updated action"
+
+
+def test_repository_records_canonical_phase_one_entities():
+    connection = sqlite3.connect(":memory:")
+    create_schema(connection)
+    repository = AuditRepository(connection)
+
+    repository.upsert_instrument(
+        symbol="XAUUSD",
+        display_name="Gold spot",
+        payload={"broker_symbol": "XAUUSDc"},
+    )
+    session_id = repository.record_session(
+        symbol="XAUUSD",
+        timeframe="5m",
+        payload={"mode": "replay"},
+    )
+    repository.upsert_ai_trader(
+        trader_id="brooks-generalist",
+        name="Brooks Generalist",
+        payload={"status": "active"},
+    )
+    agent_run_id = repository.record_agent_run(
+        session_id=session_id,
+        trader_id="brooks-generalist",
+        payload={"bias": "long"},
+    )
+    action_id = repository.record_agent_action(
+        analysis_run_id=agent_run_id,
+        sequence=1,
+        tool="find_swings",
+        payload={"tool": "find_swings", "status": "ok"},
+    )
+    model_call_id = repository.record_canonical_model_call(
+        agent_run_id=agent_run_id,
+        provider="mock",
+        model="mock-brooks",
+        input_tokens=100,
+        output_tokens=50,
+        estimated_cost_usd=0,
+        payload={"schema_version": "v1"},
+    )
+    repository.record_chart_object(
+        object_id="tl-primary",
+        agent_run_id=agent_run_id,
+        payload={"kind": "trendline"},
+    )
+    repository.record_simulated_order(
+        order_id="sim-order-1",
+        agent_run_id=agent_run_id,
+        payload={"status": "filled"},
+    )
+    trade_id = repository.record_simulated_trade(
+        order_id="sim-order-1",
+        payload={"r_multiple": 2.0},
+    )
+    review_id = repository.record_trade_review(
+        agent_run_id=agent_run_id,
+        trade_id=trade_id,
+        payload={"review": "target reached"},
+    )
+    repository.record_knowledge_source(
+        source_id="brooks-trends",
+        title="Reading Price Charts Bar by Bar",
+        payload={"themes": ["trend"]},
+    )
+    repository.record_knowledge_chunk(
+        source_id="brooks-trends",
+        chunk_key="trend/chapter-1",
+        payload={"summary": "trend context"},
+    )
+    repository.record_setup_dossier(
+        dossier_key="wedge-reversal",
+        payload={"name": "Wedge reversal"},
+    )
+
+    assert session_id > 0
+    assert agent_run_id > 0
+    assert action_id > 0
+    assert model_call_id > 0
+    assert trade_id > 0
+    assert review_id > 0
+    for table_name in [
+        "instruments",
+        "sessions",
+        "ai_traders",
+        "agent_runs",
+        "agent_actions",
+        "model_calls",
+        "chart_objects",
+        "simulated_orders",
+        "simulated_trades",
+        "trade_reviews",
+        "knowledge_sources",
+        "knowledge_chunks",
+        "setup_dossiers",
+    ]:
+        assert repository.count_rows(table_name) == 1
