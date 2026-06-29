@@ -35,11 +35,32 @@ uv run pytest
 uv run ruff check services/api
 ```
 
-Run the frontend:
+Run the local API:
+
+```powershell
+pnpm api
+```
+
+The API exposes:
+
+- `GET /healthz`
+- `GET /api/workbench/demo`
+- `POST /api/workbench/demo/runs`
+
+By default it writes local SQLite state to `tmp/paquant.sqlite3`. Override that path without committing secrets:
+
+```powershell
+$env:PAQUANT_DB_PATH="tmp/local-paquant.sqlite3"
+pnpm api
+```
+
+Run the frontend in a second shell:
 
 ```powershell
 pnpm dev
 ```
+
+Vite proxies `/api` to `http://127.0.0.1:8000` during local development. If the API is unavailable, the web workstation falls back to the committed demo fixture so the CloudBase static preview can still open safely.
 
 Verify the frontend:
 
@@ -65,4 +86,5 @@ Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyCo
 - Deterministic simulated order/trade engine with R multiple and equity curve.
 - SQLite audit/replay schema and repository boundary.
 - Mockable model provider and Brooks Generalist AI trader output schema.
+- Local FastAPI product API for health checks, workbench payloads, and persisted demo agent runs.
 - TradingView-like desktop web workstation with candlesticks, drawing overlay, analysis, simulated orders, journal, and performance panels.

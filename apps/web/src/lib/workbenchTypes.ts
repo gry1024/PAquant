@@ -137,7 +137,18 @@ export interface JournalEntry {
   text: string;
 }
 
+export interface WorkbenchMeta {
+  source: "api" | "fixture";
+  symbol: "XAUUSD";
+  timeframe: "5m";
+  traderId: string;
+  analysisRunId?: number;
+  persisted?: boolean;
+  recordCounts?: Record<string, number>;
+}
+
 export interface WorkbenchFixture {
+  meta?: WorkbenchMeta;
   candles: Candle[];
   chartObjects: ChartObject[];
   analysis: Analysis;

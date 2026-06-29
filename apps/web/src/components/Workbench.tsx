@@ -28,9 +28,10 @@ const tools = [
 
 interface WorkbenchProps {
   fixture: WorkbenchFixture;
+  sourceLabel?: string;
 }
 
-export function Workbench({ fixture }: WorkbenchProps) {
+export function Workbench({ fixture, sourceLabel }: WorkbenchProps) {
   const latest = fixture.candles.at(-1);
   const trade = fixture.trades.at(0);
 
@@ -62,6 +63,7 @@ export function Workbench({ fixture }: WorkbenchProps) {
             <span>
               <Activity size={15} /> Brooks Generalist
             </span>
+            {sourceLabel ? <span className="source-pill">{sourceLabel}</span> : null}
             <span>Last {latest?.close.toFixed(2)}</span>
             <span>{fixture.candles.length} bars</span>
           </div>

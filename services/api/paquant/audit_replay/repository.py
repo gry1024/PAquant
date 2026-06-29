@@ -4,6 +4,18 @@ import json
 import sqlite3
 from typing import Any
 
+_COUNTABLE_TABLES = {
+    "analysis_runs",
+    "candles",
+    "drawing_objects",
+    "journals",
+    "llm_usage",
+    "orders",
+    "trade_snapshots",
+    "trader_profiles",
+    "trades",
+}
+
 
 class AuditRepository:
     def __init__(self, connection: sqlite3.Connection) -> None:
@@ -56,3 +68,39 @@ class AuditRepository:
             (object_id, analysis_run_id, json.dumps(payload, ensure_ascii=False)),
         )
         self.connection.commit()
+
+    def record_order(
+        self, *, order_id: str, analysis_run_id: int, payload: dict[str, Any]
+    ) -> None:
+        self.connection.execute(
+            "INSERT INTO orders (id, analysis_run_id, payload_json) VALUES (?, ?, ?)",
+            (order_id, analysis_run_id, json.dumps(payload, ensure_ascii=False)),
+        )
+        self.connection.commit()
+
+    def record_trade(self, *, order_id: str, payload: dict[str, Any]) -> int:
+        cursor = self.connection.execute(
+            "INSERT INTO trades (order_id, payload_json) VALUES (?, ?)",
+            (order_id, json.dumps(payload, ensure_ascii=False)),
+        )
+        self.connection.commit()
+        return int(cursor.lastrowid)
+
+    def record_journal(
+        self, *, analysis_run_id: int, entry_type: str, payload: dict[str, Any]
+    ) -> int:
+        cursor = self.connection.execute(
+            """
+            INSERT INTO journals (analysis_run_id, entry_type, payload_json)
+            VALUES (?, ?, ?)
+            """,
+            (analysis_run_id, entry_type, json.dumps(payload, ensure_ascii=False)),
+        )
+        self.connection.commit()
+        return int(cursor.lastrowid)
+
+    def count_rows(self, table_name: str) -> int:
+        if table_name not in _COUNTABLE_TABLES:
+            raise ValueError(f"cannot count unknown audit table: {table_name}")
+        row = self.connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+        return int(row[0])

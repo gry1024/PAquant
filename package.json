@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.14.0",
   "scripts": {
+    "api": "uv run uvicorn paquant.api.app:create_app --factory --app-dir services/api --host 127.0.0.1 --port 8000 --reload",
     "dev": "pnpm --filter @paquant/web dev",
     "build": "pnpm --filter @paquant/web build",
     "test": "pnpm --filter @paquant/web test",

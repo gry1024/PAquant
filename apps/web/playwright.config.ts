@@ -7,11 +7,22 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:5174",
     trace: "on-first-retry"
   },
-  webServer: {
-    command: "pnpm exec vite --host 127.0.0.1 --port 5174 --strictPort",
-    url: "http://127.0.0.1:5174",
-    reuseExistingServer: false
-  },
+  webServer: [
+    {
+      command:
+        "uv run uvicorn paquant.api.app:create_app --factory --app-dir ../../services/api --host 127.0.0.1 --port 8000",
+      url: "http://127.0.0.1:8000/healthz",
+      reuseExistingServer: false,
+      env: {
+        PAQUANT_DB_PATH: "../../tmp/playwright-paquant.sqlite3"
+      }
+    },
+    {
+      command: "pnpm exec vite --host 127.0.0.1 --port 5174 --strictPort",
+      url: "http://127.0.0.1:5174",
+      reuseExistingServer: false
+    }
+  ],
   projects: [
     {
       name: "chromium",
