@@ -10,6 +10,7 @@ from paquant.agent_runtime.brooks_generalist import (
     build_brooks_generalist_drawing_commands,
 )
 from paquant.data_layer.sample_data import load_sample_candles
+from paquant.data_layer.timeframes import build_higher_timeframe_context
 from paquant.drawing_engine.schemas import (
     AnchorPoint,
     MeasuredMove,
@@ -301,6 +302,10 @@ def build_demo_fixture() -> dict[str, Any]:
 
     return {
         "candles": [candle.model_dump(mode="json") for candle in candles],
+        "higherTimeframeContext": [
+            context.model_dump(mode="json")
+            for context in build_higher_timeframe_context(candles)
+        ],
         "agentActions": [_action_payload(action) for action in decision.action_stream],
         "chartObjects": chart_object_payloads,
         "analysis": _analysis_payload(decision),

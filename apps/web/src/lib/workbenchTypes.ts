@@ -12,6 +12,16 @@ export interface Candle {
   close_position: number;
 }
 
+export interface HigherTimeframeContext {
+  timeframe: "15m" | "1h";
+  bars: number;
+  bias: "long" | "short" | "neutral";
+  high: number;
+  low: number;
+  last_close: number;
+  summary: string;
+}
+
 export interface AnchorPoint {
   time_index: number;
   price: number;
@@ -316,6 +326,7 @@ export interface KnowledgeBrowser {
 export interface WorkbenchFixture {
   meta?: WorkbenchMeta;
   candles: Candle[];
+  higherTimeframeContext: HigherTimeframeContext[];
   agentActions: AgentAction[];
   chartObjects: ChartObject[];
   analysis: Analysis;

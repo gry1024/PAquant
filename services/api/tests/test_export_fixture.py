@@ -6,6 +6,7 @@ def test_demo_fixture_contains_workbench_payload():
 
     assert {
         "candles",
+        "higherTimeframeContext",
         "agentActions",
         "chartObjects",
         "analysis",
@@ -19,6 +20,10 @@ def test_demo_fixture_contains_workbench_payload():
         "knowledge",
     } <= set(payload)
     assert payload["candles"][0]["symbol"] == "XAUUSD"
+    assert [context["timeframe"] for context in payload["higherTimeframeContext"]] == [
+        "15m",
+        "1h",
+    ]
     assert payload["analysis"]["traderId"] == "brooks-generalist"
     assert payload["analysis"]["knowledgeRefs"]
     assert payload["analysis"]["knowledgeRefs"][0]["sourceRefs"]

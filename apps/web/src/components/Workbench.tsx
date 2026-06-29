@@ -83,6 +83,11 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
             {sourceLabel ? <span className="source-pill">{sourceLabel}</span> : null}
             <span>Last {latest?.close.toFixed(2)}</span>
             <span>{fixture.candles.length} bars</span>
+            {fixture.higherTimeframeContext.map((context) => (
+              <span className="timeframe-chip" title={context.summary} key={context.timeframe}>
+                {formatTimeframe(context.timeframe)} {context.bias}
+              </span>
+            ))}
           </div>
         </header>
 
@@ -124,4 +129,8 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
       </section>
     </main>
   );
+}
+
+function formatTimeframe(timeframe: "15m" | "1h") {
+  return timeframe === "15m" ? "M15" : "H1";
 }

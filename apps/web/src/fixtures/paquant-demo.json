@@ -937,6 +937,26 @@
       "close_position": 0.4015544041451116
     }
   ],
+  "higherTimeframeContext": [
+    {
+      "timeframe": "15m",
+      "bars": 24,
+      "bias": "long",
+      "high": 2350.25,
+      "low": 2306.5,
+      "last_close": 2347.94,
+      "summary": "M15 long context derived from XAU 5m replay; range 2306.50-2350.25."
+    },
+    {
+      "timeframe": "1h",
+      "bars": 6,
+      "bias": "long",
+      "high": 2350.25,
+      "low": 2306.5,
+      "last_close": 2347.94,
+      "summary": "H1 long context derived from XAU 5m replay; range 2306.50-2350.25."
+    }
+  ],
   "agentActions": [
     {
       "sequence": 1,

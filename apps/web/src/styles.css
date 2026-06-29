@@ -192,6 +192,12 @@ h2 {
   background: rgba(15, 159, 120, 0.08) !important;
 }
 
+.timeframe-chip {
+  color: #31506f !important;
+  border-color: #d9e2ef !important;
+  background: #f8fafc !important;
+}
+
 .trader-roster {
   display: grid;
   grid-template-columns: 148px minmax(0, 1fr);
