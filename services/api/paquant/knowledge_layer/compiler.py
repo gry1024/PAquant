@@ -16,6 +16,7 @@ class KnowledgeSource(BaseModel):
     title: str
     source_type: Literal["local_pdf"]
     themes: list[str]
+    chapter_refs: list[str]
 
 
 class Concept(BaseModel):
@@ -35,9 +36,38 @@ class SetupDossier(BaseModel):
     name: str
     context: str
     observations: list[str]
+    measurements: list[str]
     entry_styles: list[str]
+    stop_logic: list[str]
+    targets: list[str]
+    management: list[str]
     failure_modes: list[str]
+    nearby_setups: list[str]
     source_refs: list[str]
+
+
+class CaseCard(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    title: str
+    source_refs: list[str]
+    chart_context: str
+    pattern_interpretation: str
+    trader_thinking: str
+    expected_follow_through: str
+    failure_scenario: str
+
+
+class ReasoningPlaybook(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    name: str
+    questions: list[str]
+    required_observations: list[str]
+    invalidation_checks: list[str]
+    display_guardrails: list[str]
 
 
 class KnowledgeArtifact(BaseModel):
@@ -47,6 +77,8 @@ class KnowledgeArtifact(BaseModel):
     sources: list[KnowledgeSource]
     concepts: list[Concept]
     setup_dossiers: list[SetupDossier]
+    case_cards: list[CaseCard]
+    reasoning_playbooks: list[ReasoningPlaybook]
 
 
 def compile_core_knowledge() -> KnowledgeArtifact:
@@ -56,18 +88,33 @@ def compile_core_knowledge() -> KnowledgeArtifact:
             title="Trading Price Action - Trends",
             source_type="local_pdf",
             themes=["trend", "channel", "always-in", "pullback quality"],
+            chapter_refs=[
+                "Trend from the open",
+                "Channels and broad channels",
+                "Pullbacks in strong trends",
+            ],
         ),
         KnowledgeSource(
             id="brooks-trading-ranges",
             title="Trading Price Action - Trading Ranges",
             source_type="local_pdf",
             themes=["trading range", "failed breakout", "buy low sell high"],
+            chapter_refs=[
+                "Trading range behavior",
+                "Breakouts and failed breakouts",
+                "Support and resistance in ranges",
+            ],
         ),
         KnowledgeSource(
             id="brooks-reversals",
             title="Trading Price Action - Reversals",
             source_type="local_pdf",
             themes=["wedge", "three pushes", "failed reversal", "exhaustion"],
+            chapter_refs=[
+                "Major trend reversals",
+                "Wedges and three pushes",
+                "Failed reversals and final flags",
+            ],
         ),
     ]
     concepts = [
@@ -125,7 +172,8 @@ def compile_core_knowledge() -> KnowledgeArtifact:
             name="Three Pushes",
             summary=(
                 "Three pushes are repeated attempts that may show exhaustion, "
-                "especially with spacing or momentum change."
+                "especially when spacing widens or momentum fades into the "
+                "third push."
             ),
             source_refs=["brooks-reversals"],
             questions=[
@@ -185,14 +233,32 @@ def compile_core_knowledge() -> KnowledgeArtifact:
                 "Three pushes are countable",
                 "Signal bar closes strongly against the prior move",
             ],
+            measurements=[
+                "Count each push from swing extreme to swing extreme",
+                "Compare leg size and spacing between pushes",
+                "Check channel overshoot or undershoot on the third push",
+            ],
             entry_styles=[
                 "stop entry beyond signal bar",
                 "limit entry on pullback after confirmation",
+            ],
+            stop_logic=[
+                "Protect beyond the signal bar or final push extreme",
+                "Reduce size if the protective stop is too wide for trader equation",
+            ],
+            targets=[
+                "First target near the prior pullback low or moving-average test",
+                "Second target near the start of the wedge when reversal is strong",
+            ],
+            management=[
+                "Exit quickly if reversal follow-through is absent",
+                "Hold runner only after a clear opposite always-in transition",
             ],
             failure_modes=[
                 "Third push becomes a breakout with follow-through",
                 "Signal bar is small in a strong trend",
             ],
+            nearby_setups=["failed_breakout", "major_trend_reversal", "final_flag"],
             source_refs=["brooks-reversals"],
         ),
         SetupDossier(
@@ -203,12 +269,134 @@ def compile_core_knowledge() -> KnowledgeArtifact:
                 "quickly returns inside."
             ),
             observations=["Breakout lacks follow-through", "Re-entry traps breakout traders"],
+            measurements=[
+                "Mark the prior range boundary",
+                "Count bars outside the range before re-entry",
+                "Compare breakout bar size with follow-through bars",
+            ],
             entry_styles=["enter on re-entry close", "enter on pullback testing the broken level"],
+            stop_logic=[
+                "Protect beyond the failed breakout extreme",
+                "Avoid full size if entry is near the range middle",
+            ],
+            targets=[
+                "Range midpoint for conservative scalps",
+                "Opposite range extreme if re-entry is strong",
+            ],
+            management=[
+                "Take partial profits into range middle",
+                "Exit if price breaks back outside with consecutive closes",
+            ],
             failure_modes=[
                 "Breakout resumes with strong consecutive closes",
                 "Range was too weakly defined",
             ],
+            nearby_setups=["trading_range_scalp", "breakout_pullback", "wedge_reversal"],
             source_refs=["brooks-trading-ranges"],
+        ),
+    ]
+    case_cards = [
+        CaseCard(
+            key="three_push_channel_overshoot",
+            title="Third push overshoots a broad channel",
+            source_refs=["brooks-reversals"],
+            chart_context=(
+                "XAU 5m is climbing in a broad channel after a mature intraday move."
+            ),
+            pattern_interpretation=(
+                "The third push tests above the channel but momentum is weaker "
+                "than the prior leg."
+            ),
+            trader_thinking=(
+                "Trend traders hesitate to buy high; countertrend traders wait "
+                "for a signal bar and clear invalidation."
+            ),
+            expected_follow_through=(
+                "expected correction toward the prior pullback or channel midline "
+                "if sellers get follow-through."
+            ),
+            failure_scenario=(
+                "A strong close above the channel followed by another bull bar "
+                "turns the wedge read into a breakout."
+            ),
+        ),
+        CaseCard(
+            key="failed_breakout_range_reentry",
+            title="Range breakout fails back inside",
+            source_refs=["brooks-trading-ranges"],
+            chart_context=(
+                "A defined XAU 5m range breaks above resistance after several "
+                "overlapping bars."
+            ),
+            pattern_interpretation=(
+                "Failure to hold outside the range traps breakout buyers and "
+                "can create a move back toward the range middle."
+            ),
+            trader_thinking=(
+                "Scalpers fade the failed breakout; swing traders require enough "
+                "reward to the opposite side of the range."
+            ),
+            expected_follow_through=(
+                "A decisive re-entry should test the midpoint and may reach the "
+                "opposite extreme."
+            ),
+            failure_scenario=(
+                "If the breakout retests resistance and holds above it, the "
+                "failed-breakout premise is invalid."
+            ),
+        ),
+    ]
+    playbooks = [
+        ReasoningPlaybook(
+            key="trade_or_no_trade",
+            name="Trade or no-trade decision",
+            questions=[
+                "What is the current market state?",
+                "Is the setup aligned with context or fighting a strong move?",
+                "Where is invalidation?",
+                "Does the trader's equation justify action?",
+            ],
+            required_observations=[
+                "market state",
+                "always-in bias",
+                "key levels",
+                "setup candidate",
+                "failure scenario",
+            ],
+            invalidation_checks=[
+                "price violates protective stop",
+                "signal fails to get follow-through",
+                "opposite side becomes always-in",
+            ],
+            display_guardrails=[
+                "Show reasoning summary and evidence trail only",
+                "Raw hidden chain-of-thought must not be displayed",
+            ],
+        ),
+        ReasoningPlaybook(
+            key="wedge_quality",
+            name="Wedge quality review",
+            questions=[
+                "Are there exactly three credible pushes?",
+                "Is momentum increasing or fading?",
+                "Did the third push overshoot or undershoot a channel?",
+                "Is the signal bar strong enough for the risk?",
+            ],
+            required_observations=[
+                "push count",
+                "leg comparison",
+                "channel relation",
+                "signal bar close position",
+            ],
+            invalidation_checks=[
+                "breakout follow-through after third push",
+                "weak signal bar in a strong trend",
+                "stop distance too large for expected correction",
+            ],
+            display_guardrails=[
+                "Show measurable wedge evidence",
+                "Do not present geometry alone as trade justification",
+            ],
         ),
     ]
     return KnowledgeArtifact(
@@ -216,6 +404,8 @@ def compile_core_knowledge() -> KnowledgeArtifact:
         sources=sources,
         concepts=concepts,
         setup_dossiers=dossiers,
+        case_cards=case_cards,
+        reasoning_playbooks=playbooks,
     )
 
 
@@ -227,3 +417,11 @@ def write_committed_artifact(path: Path = ARTIFACT_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = compile_core_knowledge().model_dump(mode="json")
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def main() -> None:
+    write_committed_artifact()
+
+
+if __name__ == "__main__":
+    main()

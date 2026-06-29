@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from paquant.agent_runtime.registry import list_trader_profiles
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema
-from paquant.export_fixture import build_demo_fixture
+from paquant.export_fixture import build_demo_fixture, build_knowledge_browser_payload
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
@@ -47,6 +47,10 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             _profile_to_api(profiles_by_id[profile.id]) for profile in list_trader_profiles()
         ]
         return {"traders": ordered_profiles}
+
+    @app.get("/api/knowledge")
+    def get_knowledge() -> dict[str, Any]:
+        return build_knowledge_browser_payload()
 
     @app.post("/api/workbench/demo/runs", status_code=201)
     def create_demo_run() -> dict[str, Any]:

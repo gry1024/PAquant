@@ -1160,12 +1160,61 @@
   ],
   "knowledge": {
     "version": "2026-06-30.phase-one",
+    "sources": [
+      {
+        "id": "brooks-trends",
+        "title": "Trading Price Action - Trends",
+        "sourceType": "local_pdf",
+        "themes": [
+          "trend",
+          "channel",
+          "always-in",
+          "pullback quality"
+        ],
+        "chapterRefs": [
+          "Trend from the open",
+          "Channels and broad channels",
+          "Pullbacks in strong trends"
+        ]
+      },
+      {
+        "id": "brooks-trading-ranges",
+        "title": "Trading Price Action - Trading Ranges",
+        "sourceType": "local_pdf",
+        "themes": [
+          "trading range",
+          "failed breakout",
+          "buy low sell high"
+        ],
+        "chapterRefs": [
+          "Trading range behavior",
+          "Breakouts and failed breakouts",
+          "Support and resistance in ranges"
+        ]
+      },
+      {
+        "id": "brooks-reversals",
+        "title": "Trading Price Action - Reversals",
+        "sourceType": "local_pdf",
+        "themes": [
+          "wedge",
+          "three pushes",
+          "failed reversal",
+          "exhaustion"
+        ],
+        "chapterRefs": [
+          "Major trend reversals",
+          "Wedges and three pushes",
+          "Failed reversals and final flags"
+        ]
+      }
+    ],
     "concepts": [
       {
         "key": "context",
         "name": "Context Before Setup",
         "summary": "A pattern only has trading meaning after trend, channel, range, and recent urgency are understood.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-trends",
           "brooks-trading-ranges"
         ],
@@ -1178,7 +1227,7 @@
         "key": "always_in",
         "name": "Always-In Direction",
         "summary": "The trader tracks which side a reasonable swing trader should currently favor until evidence flips it.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-trends"
         ],
         "questions": [
@@ -1190,7 +1239,7 @@
         "key": "trend_channel",
         "name": "Trend and Channel Spectrum",
         "summary": "Channels can behave as sloping trading ranges, so line breaks and overshoots need follow-through.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-trends"
         ],
         "questions": [
@@ -1202,7 +1251,7 @@
         "key": "trading_range",
         "name": "Trading Range State",
         "summary": "Ranges express uncertainty; many breakouts fail and probability often favors fading extremes.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-trading-ranges"
         ],
         "questions": [
@@ -1213,8 +1262,8 @@
       {
         "key": "three_push",
         "name": "Three Pushes",
-        "summary": "Three pushes are repeated attempts that may show exhaustion, especially with spacing or momentum change.",
-        "source_refs": [
+        "summary": "Three pushes are repeated attempts that may show exhaustion, especially when spacing widens or momentum fades into the third push.",
+        "sourceRefs": [
           "brooks-reversals"
         ],
         "questions": [
@@ -1226,7 +1275,7 @@
         "key": "wedge",
         "name": "Wedge Reversal",
         "summary": "A wedge is context plus repeated attempts, not geometry alone; the signal bar and follow-through decide quality.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-reversals"
         ],
         "questions": [
@@ -1238,7 +1287,7 @@
         "key": "failed_breakout",
         "name": "Failed Breakout",
         "summary": "A failed breakout can create stronger opposite pressure when traders are trapped beyond a known level.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-trading-ranges",
           "brooks-reversals"
         ],
@@ -1251,7 +1300,7 @@
         "key": "traders_equation",
         "name": "Trader's Equation",
         "summary": "A trade requires the relationship between probability, risk, and reward to justify action.",
-        "source_refs": [
+        "sourceRefs": [
           "brooks-trends",
           "brooks-trading-ranges",
           "brooks-reversals"
@@ -1271,15 +1320,37 @@
           "Three pushes are countable",
           "Signal bar closes strongly against the prior move"
         ],
-        "entry_styles": [
+        "measurements": [
+          "Count each push from swing extreme to swing extreme",
+          "Compare leg size and spacing between pushes",
+          "Check channel overshoot or undershoot on the third push"
+        ],
+        "entryStyles": [
           "stop entry beyond signal bar",
           "limit entry on pullback after confirmation"
         ],
-        "failure_modes": [
+        "stopLogic": [
+          "Protect beyond the signal bar or final push extreme",
+          "Reduce size if the protective stop is too wide for trader equation"
+        ],
+        "targets": [
+          "First target near the prior pullback low or moving-average test",
+          "Second target near the start of the wedge when reversal is strong"
+        ],
+        "management": [
+          "Exit quickly if reversal follow-through is absent",
+          "Hold runner only after a clear opposite always-in transition"
+        ],
+        "failureModes": [
           "Third push becomes a breakout with follow-through",
           "Signal bar is small in a strong trend"
         ],
-        "source_refs": [
+        "nearbySetups": [
+          "failed_breakout",
+          "major_trend_reversal",
+          "final_flag"
+        ],
+        "sourceRefs": [
           "brooks-reversals"
         ]
       },
@@ -1291,16 +1362,117 @@
           "Breakout lacks follow-through",
           "Re-entry traps breakout traders"
         ],
-        "entry_styles": [
+        "measurements": [
+          "Mark the prior range boundary",
+          "Count bars outside the range before re-entry",
+          "Compare breakout bar size with follow-through bars"
+        ],
+        "entryStyles": [
           "enter on re-entry close",
           "enter on pullback testing the broken level"
         ],
-        "failure_modes": [
+        "stopLogic": [
+          "Protect beyond the failed breakout extreme",
+          "Avoid full size if entry is near the range middle"
+        ],
+        "targets": [
+          "Range midpoint for conservative scalps",
+          "Opposite range extreme if re-entry is strong"
+        ],
+        "management": [
+          "Take partial profits into range middle",
+          "Exit if price breaks back outside with consecutive closes"
+        ],
+        "failureModes": [
           "Breakout resumes with strong consecutive closes",
           "Range was too weakly defined"
         ],
-        "source_refs": [
+        "nearbySetups": [
+          "trading_range_scalp",
+          "breakout_pullback",
+          "wedge_reversal"
+        ],
+        "sourceRefs": [
           "brooks-trading-ranges"
+        ]
+      }
+    ],
+    "caseCards": [
+      {
+        "key": "three_push_channel_overshoot",
+        "title": "Third push overshoots a broad channel",
+        "sourceRefs": [
+          "brooks-reversals"
+        ],
+        "chartContext": "XAU 5m is climbing in a broad channel after a mature intraday move.",
+        "patternInterpretation": "The third push tests above the channel but momentum is weaker than the prior leg.",
+        "traderThinking": "Trend traders hesitate to buy high; countertrend traders wait for a signal bar and clear invalidation.",
+        "expectedFollowThrough": "expected correction toward the prior pullback or channel midline if sellers get follow-through.",
+        "failureScenario": "A strong close above the channel followed by another bull bar turns the wedge read into a breakout."
+      },
+      {
+        "key": "failed_breakout_range_reentry",
+        "title": "Range breakout fails back inside",
+        "sourceRefs": [
+          "brooks-trading-ranges"
+        ],
+        "chartContext": "A defined XAU 5m range breaks above resistance after several overlapping bars.",
+        "patternInterpretation": "Failure to hold outside the range traps breakout buyers and can create a move back toward the range middle.",
+        "traderThinking": "Scalpers fade the failed breakout; swing traders require enough reward to the opposite side of the range.",
+        "expectedFollowThrough": "A decisive re-entry should test the midpoint and may reach the opposite extreme.",
+        "failureScenario": "If the breakout retests resistance and holds above it, the failed-breakout premise is invalid."
+      }
+    ],
+    "reasoningPlaybooks": [
+      {
+        "key": "trade_or_no_trade",
+        "name": "Trade or no-trade decision",
+        "questions": [
+          "What is the current market state?",
+          "Is the setup aligned with context or fighting a strong move?",
+          "Where is invalidation?",
+          "Does the trader's equation justify action?"
+        ],
+        "requiredObservations": [
+          "market state",
+          "always-in bias",
+          "key levels",
+          "setup candidate",
+          "failure scenario"
+        ],
+        "invalidationChecks": [
+          "price violates protective stop",
+          "signal fails to get follow-through",
+          "opposite side becomes always-in"
+        ],
+        "displayGuardrails": [
+          "Show reasoning summary and evidence trail only",
+          "Raw hidden chain-of-thought must not be displayed"
+        ]
+      },
+      {
+        "key": "wedge_quality",
+        "name": "Wedge quality review",
+        "questions": [
+          "Are there exactly three credible pushes?",
+          "Is momentum increasing or fading?",
+          "Did the third push overshoot or undershoot a channel?",
+          "Is the signal bar strong enough for the risk?"
+        ],
+        "requiredObservations": [
+          "push count",
+          "leg comparison",
+          "channel relation",
+          "signal bar close position"
+        ],
+        "invalidationChecks": [
+          "breakout follow-through after third push",
+          "weak signal bar in a strong trend",
+          "stop distance too large for expected correction"
+        ],
+        "displayGuardrails": [
+          "Show measurable wedge evidence",
+          "Do not present geometry alone as trade justification"
         ]
       }
     ]

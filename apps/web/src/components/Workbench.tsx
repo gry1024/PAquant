@@ -2,7 +2,6 @@ import {
   Activity,
   Box,
   Crosshair,
-  Gauge,
   GitCompareArrows,
   Layers3,
   MousePointer2,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { ChartPanel } from "./ChartPanel";
 import { JournalPanel } from "./JournalPanel";
+import { KnowledgeBrowserPanel } from "./KnowledgeBrowserPanel";
 import { OrdersPanel } from "./OrdersPanel";
 import { PerformanceStrip } from "./PerformanceStrip";
 import { TraderPanel } from "./TraderPanel";
@@ -89,20 +89,7 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
             summary={fixture.performanceSummary}
             trade={trade}
           />
-          <div className="knowledge-panel">
-            <div className="panel-heading">
-              <Gauge size={16} />
-              Brooks knowledge
-            </div>
-            <ul className="compact-list">
-              {fixture.knowledge.concepts.slice(0, 4).map((concept) => (
-                <li key={concept.key}>
-                  <strong>{concept.name}</strong>
-                  <span>{concept.summary}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <KnowledgeBrowserPanel knowledge={fixture.knowledge} />
         </section>
       </section>
     </main>

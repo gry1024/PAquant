@@ -193,6 +193,66 @@ export interface TraderProfile {
   };
 }
 
+export interface KnowledgeSource {
+  id: string;
+  title: string;
+  sourceType: "local_pdf";
+  themes: string[];
+  chapterRefs: string[];
+}
+
+export interface KnowledgeConcept {
+  key: string;
+  name: string;
+  summary: string;
+  sourceRefs: string[];
+  questions: string[];
+}
+
+export interface SetupDossier {
+  key: string;
+  name: string;
+  context: string;
+  observations: string[];
+  measurements: string[];
+  entryStyles: string[];
+  stopLogic: string[];
+  targets: string[];
+  management: string[];
+  failureModes: string[];
+  nearbySetups: string[];
+  sourceRefs: string[];
+}
+
+export interface CaseCard {
+  key: string;
+  title: string;
+  sourceRefs: string[];
+  chartContext: string;
+  patternInterpretation: string;
+  traderThinking: string;
+  expectedFollowThrough: string;
+  failureScenario: string;
+}
+
+export interface ReasoningPlaybook {
+  key: string;
+  name: string;
+  questions: string[];
+  requiredObservations: string[];
+  invalidationChecks: string[];
+  displayGuardrails: string[];
+}
+
+export interface KnowledgeBrowser {
+  version: string;
+  sources: KnowledgeSource[];
+  concepts: KnowledgeConcept[];
+  setupDossiers: SetupDossier[];
+  caseCards: CaseCard[];
+  reasoningPlaybooks: ReasoningPlaybook[];
+}
+
 export interface WorkbenchFixture {
   meta?: WorkbenchMeta;
   candles: Candle[];
@@ -203,9 +263,5 @@ export interface WorkbenchFixture {
   equityCurve: EquityPoint[];
   performanceSummary: PerformanceSummary;
   journal: JournalEntry[];
-  knowledge: {
-    version: string;
-    concepts: Array<{ key: string; name: string; summary: string }>;
-    setupDossiers: Array<{ key: string; name: string; context: string }>;
-  };
+  knowledge: KnowledgeBrowser;
 }

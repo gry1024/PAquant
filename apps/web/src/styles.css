@@ -321,7 +321,8 @@ h2 {
 .chart-panel,
 .trader-panel,
 .data-panel,
-.knowledge-panel {
+.knowledge-panel,
+.knowledge-browser {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -567,7 +568,8 @@ h2 {
 }
 
 .data-panel,
-.knowledge-panel {
+.knowledge-panel,
+.knowledge-browser {
   min-height: 188px;
   padding: 12px;
 }
@@ -727,6 +729,126 @@ h2 {
   border-bottom: 1px solid var(--line-soft);
 }
 
+.knowledge-browser {
+  display: grid;
+  gap: 10px;
+  min-height: 230px;
+}
+
+.knowledge-layout {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.55fr) minmax(0, 1.45fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.concept-index {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.concept-chip {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.concept-chip strong,
+.knowledge-card strong,
+.knowledge-list-block strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.concept-chip span,
+.knowledge-card p,
+.knowledge-card span,
+.dossier-panel p {
+  color: #526276;
+  font-size: 11px;
+  line-height: 1.38;
+}
+
+.concept-chip em {
+  overflow: hidden;
+  color: var(--blue);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-detail {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.knowledge-subhead {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.dossier-panel,
+.knowledge-card {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.knowledge-columns,
+.knowledge-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.knowledge-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.knowledge-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.knowledge-list-block ul,
+.knowledge-card ul {
+  padding-left: 15px;
+  margin: 4px 0 0;
+  color: #526276;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.source-map {
+  align-content: start;
+}
+
+.source-map div {
+  display: grid;
+  gap: 2px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.source-map div:last-child {
+  border-bottom: 0;
+}
+
 @media (max-width: 1120px) {
   .trader-roster {
     grid-template-columns: 1fr;
@@ -748,6 +870,11 @@ h2 {
 
   .bottom-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .knowledge-layout,
+  .knowledge-grid {
+    grid-template-columns: 1fr;
   }
 
   .trader-panel {
@@ -789,5 +916,9 @@ h2 {
   .bottom-grid {
     grid-template-columns: 1fr;
     padding: 0 8px 8px;
+  }
+
+  .knowledge-columns {
+    grid-template-columns: 1fr;
   }
 }

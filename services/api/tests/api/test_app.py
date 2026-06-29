@@ -61,6 +61,22 @@ def test_traders_endpoint_returns_configured_roster(tmp_path: Path):
     )
 
 
+def test_knowledge_endpoint_returns_browser_contract(tmp_path: Path):
+    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+
+    response = client.get("/api/knowledge")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"] == "2026-06-30.phase-one"
+    assert payload["sources"][0]["chapterRefs"]
+    assert {case["key"] for case in payload["caseCards"]} >= {
+        "three_push_channel_overshoot",
+        "failed_breakout_range_reentry",
+    }
+    assert payload["reasoningPlaybooks"][0]["displayGuardrails"]
+
+
 def test_demo_run_endpoint_persists_auditable_artifacts(tmp_path: Path):
     database_path = tmp_path / "paquant.sqlite3"
     client = TestClient(create_app(database_path=database_path))

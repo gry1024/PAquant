@@ -43,6 +43,74 @@ def _analysis_payload(decision) -> dict[str, Any]:
     }
 
 
+def build_knowledge_browser_payload() -> dict[str, Any]:
+    knowledge = compile_core_knowledge()
+    return {
+        "version": knowledge.version,
+        "sources": [
+            {
+                "id": source.id,
+                "title": source.title,
+                "sourceType": source.source_type,
+                "themes": source.themes,
+                "chapterRefs": source.chapter_refs,
+            }
+            for source in knowledge.sources
+        ],
+        "concepts": [
+            {
+                "key": concept.key,
+                "name": concept.name,
+                "summary": concept.summary,
+                "sourceRefs": concept.source_refs,
+                "questions": concept.questions,
+            }
+            for concept in knowledge.concepts
+        ],
+        "setupDossiers": [
+            {
+                "key": dossier.key,
+                "name": dossier.name,
+                "context": dossier.context,
+                "observations": dossier.observations,
+                "measurements": dossier.measurements,
+                "entryStyles": dossier.entry_styles,
+                "stopLogic": dossier.stop_logic,
+                "targets": dossier.targets,
+                "management": dossier.management,
+                "failureModes": dossier.failure_modes,
+                "nearbySetups": dossier.nearby_setups,
+                "sourceRefs": dossier.source_refs,
+            }
+            for dossier in knowledge.setup_dossiers
+        ],
+        "caseCards": [
+            {
+                "key": case.key,
+                "title": case.title,
+                "sourceRefs": case.source_refs,
+                "chartContext": case.chart_context,
+                "patternInterpretation": case.pattern_interpretation,
+                "traderThinking": case.trader_thinking,
+                "expectedFollowThrough": case.expected_follow_through,
+                "failureScenario": case.failure_scenario,
+            }
+            for case in knowledge.case_cards
+        ],
+        "reasoningPlaybooks": [
+            {
+                "key": playbook.key,
+                "name": playbook.name,
+                "questions": playbook.questions,
+                "requiredObservations": playbook.required_observations,
+                "invalidationChecks": playbook.invalidation_checks,
+                "displayGuardrails": playbook.display_guardrails,
+            }
+            for playbook in knowledge.reasoning_playbooks
+        ],
+    }
+
+
 def build_demo_fixture() -> dict[str, Any]:
     candles = load_sample_candles()
     knowledge = compile_core_knowledge()
@@ -133,13 +201,7 @@ def build_demo_fixture() -> dict[str, Any]:
                 "text": "Simulated target was reached for a 2R outcome.",
             },
         ],
-        "knowledge": {
-            "version": knowledge.version,
-            "concepts": [concept.model_dump(mode="json") for concept in knowledge.concepts],
-            "setupDossiers": [
-                dossier.model_dump(mode="json") for dossier in knowledge.setup_dossiers
-            ],
-        },
+        "knowledge": build_knowledge_browser_payload(),
     }
 
 
