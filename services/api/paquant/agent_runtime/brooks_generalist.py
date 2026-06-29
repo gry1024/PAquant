@@ -104,49 +104,86 @@ class BrooksGeneralistTrader:
             )
         )
 
-        proposed_order = ProposedOrder(
-            side="buy",
-            order_type="limit",
-            entry=2310,
-            stop=2305,
-            target=2320,
-            quantity=1,
-            setup_name="Brooks pullback in always-in long context",
-        )
+        if bias == "neutral":
+            proposed_order = None
+            setup_candidate = "No-trade: neutral range"
+            entry_type = "no trade"
+            stop = None
+            target = None
+            position_size_suggestion = 0.0
+            confidence = 0.38
+            no_trade_reason = (
+                "Always-in direction is neutral and the replay lacks enough "
+                "directional follow-through for a favorable trader's equation."
+            )
+        else:
+            proposed_order = ProposedOrder(
+                side="buy",
+                order_type="limit",
+                entry=2310,
+                stop=2305,
+                target=2320,
+                quantity=1,
+                setup_name="Brooks pullback in always-in long context",
+            )
+            setup_candidate = "Brooks pullback in always-in long context"
+            entry_type = "limit buy"
+            stop = 2305.0
+            target = 2320.0
+            position_size_suggestion = 1.0
+            confidence = 0.64
+            no_trade_reason = None
+
+        key_levels = [
+            KeyLevel(label="session low", price=round(low, 2), evidence="Lowest replay candle"),
+            KeyLevel(label="session high", price=round(high, 2), evidence="Highest replay candle"),
+        ]
+        if proposed_order is not None:
+            key_levels.append(
+                KeyLevel(
+                    label="pullback entry zone",
+                    price=2310,
+                    evidence="Limit price near early pullback low",
+                )
+            )
+
         return TraderDecision(
             trader_id=self.trader_id,
             market_context=(
                 "XAU 5m is replaying an upward channel with pullbacks staying "
                 "above the prior swing low."
+                if bias != "neutral"
+                else "XAU 5m is replaying a tight neutral range with no clear "
+                "always-in side."
             ),
             always_in_bias=bias,
-            trend_strength="moderate trend with two-sided pullbacks",
+            trend_strength=(
+                "moderate trend with two-sided pullbacks"
+                if bias != "neutral"
+                else "weak; overlapping bars show limited directional urgency"
+            ),
             trading_range_state=(
                 "not a mature range; treat pullbacks as tests until a failed "
                 "breakout appears"
+                if bias != "neutral"
+                else "active range behavior; wait for breakout follow-through "
+                "or a clearer failed breakout"
             ),
-            key_levels=[
-                KeyLevel(label="session low", price=round(low, 2), evidence="Lowest replay candle"),
-                KeyLevel(
-                    label="session high", price=round(high, 2), evidence="Highest replay candle"
-                ),
-                KeyLevel(
-                    label="pullback entry zone",
-                    price=2310,
-                    evidence="Limit price near early pullback low",
-                ),
-            ],
-            setup_candidate="Brooks pullback in always-in long context",
+            key_levels=key_levels,
+            setup_candidate=setup_candidate,
             invalidation=(
                 "A break below 2305 invalidates the pullback thesis and "
                 "suggests sellers regained control."
+                if bias != "neutral"
+                else "A strong consecutive-bar breakout with follow-through "
+                "would end the no-trade premise."
             ),
-            entry_type="limit buy",
-            stop=2305,
-            target=2320,
-            position_size_suggestion=1,
-            confidence=0.64,
-            no_trade_reason=None,
+            entry_type=entry_type,
+            stop=stop,
+            target=target,
+            position_size_suggestion=position_size_suggestion,
+            confidence=confidence,
+            no_trade_reason=no_trade_reason,
             reasoning_summary=response.text,
             knowledge_refs=knowledge_refs,
             evidence_trail=[

@@ -1,5 +1,6 @@
 from paquant.agent_runtime.brooks_generalist import BrooksGeneralistTrader
 from paquant.data_layer.sample_data import load_sample_candles
+from paquant.data_layer.schemas import Candle
 from paquant.knowledge_layer.compiler import compile_core_knowledge
 
 
@@ -31,3 +32,31 @@ def test_brooks_generalist_returns_structured_auditable_decision():
         for action in decision.action_stream
     )
     assert "chain-of-thought" not in decision.reasoning_summary.lower()
+
+
+def test_brooks_generalist_can_return_no_trade_for_neutral_context():
+    trader = BrooksGeneralistTrader()
+    candles = [
+        Candle(
+            timestamp=f"2026-06-30T00:{index:02d}:00Z",
+            symbol="XAUUSD",
+            timeframe="5m",
+            open=2300.0,
+            high=2301.0,
+            low=2299.0,
+            close=2300.2,
+            volume=100,
+        )
+        for index in range(12)
+    ]
+
+    decision = trader.analyze(
+        candles=candles,
+        knowledge=compile_core_knowledge(),
+        chart_objects=[],
+    )
+
+    assert decision.always_in_bias == "neutral"
+    assert decision.proposed_order is None
+    assert decision.no_trade_reason
+    assert decision.position_size_suggestion == 0
