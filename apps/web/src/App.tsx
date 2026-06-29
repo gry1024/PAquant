@@ -1,8 +1,9 @@
+import fixtureData from "./fixtures/paquant-demo.json";
+import { Workbench } from "./components/Workbench";
+import type { WorkbenchFixture } from "./lib/workbenchTypes";
+
+const fixture = fixtureData as WorkbenchFixture;
+
 export default function App() {
-  return (
-    <main className="app-shell">
-      <h1>PAquant</h1>
-      <p>XAU 5m AI price action workstation</p>
-    </main>
-  );
+  return <Workbench fixture={fixture} />;
 }

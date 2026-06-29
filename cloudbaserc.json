@@ -1,0 +1,8 @@
+{
+  "envId": "groy-env-d5g7okht7dcd202fe",
+  "serviceName": "paquant",
+  "framework": "static",
+  "frontendRoot": "apps/web",
+  "buildPath": "dist",
+  "deployPath": "/"
+}
