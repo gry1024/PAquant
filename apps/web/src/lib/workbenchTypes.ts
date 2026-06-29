@@ -80,6 +80,15 @@ export interface KeyLevel {
   evidence: string;
 }
 
+export interface KnowledgeRef {
+  artifactType: "concept" | "setup_dossier" | "case_card" | "reasoning_playbook";
+  key: string;
+  title: string;
+  summary: string;
+  sourceRefs: string[];
+  score: number;
+}
+
 export interface AgentAction {
   sequence: number;
   tool: string;
@@ -104,6 +113,7 @@ export interface Analysis {
   target: number | null;
   confidence: number;
   reasoningSummary: string;
+  knowledgeRefs: KnowledgeRef[];
   evidenceTrail: string[];
   modelUsage: {
     provider: string;

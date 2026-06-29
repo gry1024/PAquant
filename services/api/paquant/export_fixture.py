@@ -38,6 +38,17 @@ def _analysis_payload(decision) -> dict[str, Any]:
         "target": decision.target,
         "confidence": decision.confidence,
         "reasoningSummary": decision.reasoning_summary,
+        "knowledgeRefs": [
+            {
+                "artifactType": reference.artifact_type,
+                "key": reference.key,
+                "title": reference.title,
+                "summary": reference.summary,
+                "sourceRefs": reference.source_refs,
+                "score": reference.score,
+            }
+            for reference in decision.knowledge_refs
+        ],
         "evidenceTrail": decision.evidence_trail,
         "modelUsage": decision.model_usage.model_dump(mode="json"),
     }

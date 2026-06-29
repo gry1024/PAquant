@@ -1460,15 +1460,70 @@
     "target": 2320.0,
     "confidence": 0.64,
     "reasoningSummary": "Structured Brooks decision based on context, levels, and risk.",
+    "knowledgeRefs": [
+      {
+        "artifactType": "setup_dossier",
+        "key": "wedge_reversal",
+        "title": "Wedge Reversal",
+        "summary": "Best near a channel extreme, after repeated attempts and visible momentum loss.",
+        "sourceRefs": [
+          "brooks-reversals"
+        ],
+        "score": 11
+      },
+      {
+        "artifactType": "case_card",
+        "key": "three_push_channel_overshoot",
+        "title": "Third push overshoots a broad channel",
+        "summary": "The third push tests above the channel but momentum is weaker than the prior leg.",
+        "sourceRefs": [
+          "brooks-reversals"
+        ],
+        "score": 6
+      },
+      {
+        "artifactType": "reasoning_playbook",
+        "key": "wedge_quality",
+        "title": "Wedge quality review",
+        "summary": "Are there exactly three credible pushes?",
+        "sourceRefs": [
+          "brooks-trends",
+          "brooks-trading-ranges",
+          "brooks-reversals"
+        ],
+        "score": 6
+      },
+      {
+        "artifactType": "setup_dossier",
+        "key": "failed_breakout",
+        "title": "Failed Breakout",
+        "summary": "Best at a prior range boundary when price breaks out then quickly returns inside.",
+        "sourceRefs": [
+          "brooks-trading-ranges"
+        ],
+        "score": 6
+      },
+      {
+        "artifactType": "case_card",
+        "key": "failed_breakout_range_reentry",
+        "title": "Range breakout fails back inside",
+        "summary": "Failure to hold outside the range traps breakout buyers and can create a move back toward the range middle.",
+        "sourceRefs": [
+          "brooks-trading-ranges"
+        ],
+        "score": 4
+      }
+    ],
     "evidenceTrail": [
       "Context checked before setup label.",
       "Always-in bias derived from replay swing direction.",
+      "Retrieved Brooks refs: wedge_reversal, three_push_channel_overshoot, wedge_quality, failed_breakout, failed_breakout_range_reentry.",
       "Trader's equation uses 5 points risk for 10 points reward."
     ],
     "modelUsage": {
       "provider": "mock",
       "model": "mock-brooks",
-      "input_tokens": 7,
+      "input_tokens": 11,
       "output_tokens": 12,
       "estimated_cost_usd": 0.0
     }

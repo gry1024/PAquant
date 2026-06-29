@@ -58,6 +58,18 @@ export function TraderPanel({ analysis, actions, traderName }: TraderPanelProps)
         </ul>
       </section>
       <section className="analysis-section">
+        <h2>Knowledge refs</h2>
+        <ul className="knowledge-ref-list">
+          {analysis.knowledgeRefs.map((reference) => (
+            <li key={reference.key}>
+              <strong>{reference.title}</strong>
+              <span>{reference.artifactType.replace("_", " ")}</span>
+              <small>{reference.sourceRefs.join(", ")}</small>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="analysis-section">
         <h2>Evidence rail</h2>
         <ol className="evidence-rail">
           {analysis.evidenceTrail.map((item) => (

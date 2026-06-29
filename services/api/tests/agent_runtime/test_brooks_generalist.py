@@ -18,6 +18,8 @@ def test_brooks_generalist_returns_structured_auditable_decision():
     assert decision.invalidation
     assert 0 <= decision.confidence <= 1
     assert decision.reasoning_summary
+    assert decision.knowledge_refs
+    assert all(reference.source_refs for reference in decision.knowledge_refs)
     assert decision.evidence_trail
     assert decision.action_stream
     assert {"find_swings", "draw_trendline", "draw_channel", "measure_deviation"} <= {

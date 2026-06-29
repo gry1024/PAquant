@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict
 from paquant.data_layer.schemas import Candle
 from paquant.drawing_engine.tools import AgentAction, ToolCommand, execute_drawing_plan
 from paquant.knowledge_layer.compiler import KnowledgeArtifact
+from paquant.knowledge_layer.retrieval import (
+    KnowledgeReference,
+    retrieve_relevant_knowledge,
+)
 from paquant.model_provider.base import ModelRequest, ModelUsage
 from paquant.model_provider.mock import MockModelProvider
 
@@ -49,6 +53,7 @@ class TraderDecision(BaseModel):
     confidence: float
     no_trade_reason: str | None
     reasoning_summary: str
+    knowledge_refs: list[KnowledgeReference]
     evidence_trail: list[str]
     action_stream: list[AgentAction]
     proposed_order: ProposedOrder | None
@@ -76,6 +81,14 @@ class BrooksGeneralistTrader:
         high = max(candle.high for candle in candles)
         low = min(candle.low for candle in candles)
         drawing_result = execute_drawing_plan(candles, build_brooks_generalist_drawing_commands())
+        knowledge_refs = retrieve_relevant_knowledge(
+            knowledge,
+            query=(
+                "always-in pullback channel trader equation failed breakout "
+                "wedge three pushes"
+            ),
+            limit=5,
+        )
         bias: Literal["long", "short", "neutral"] = "long" if last.close > first.open else "short"
         if abs(last.close - first.open) < 2:
             bias = "neutral"
@@ -84,7 +97,7 @@ class BrooksGeneralistTrader:
             ModelRequest(
                 prompt=(
                     f"Analyze {last.symbol} {last.timeframe} "
-                    f"with {len(knowledge.concepts)} Brooks concepts."
+                    f"with Brooks refs {[reference.key for reference in knowledge_refs]}."
                 ),
                 schema_name="TraderDecision",
                 metadata={"chart_objects": len(chart_objects)},
@@ -135,9 +148,14 @@ class BrooksGeneralistTrader:
             confidence=0.64,
             no_trade_reason=None,
             reasoning_summary=response.text,
+            knowledge_refs=knowledge_refs,
             evidence_trail=[
                 "Context checked before setup label.",
                 "Always-in bias derived from replay swing direction.",
+                (
+                    "Retrieved Brooks refs: "
+                    f"{', '.join(reference.key for reference in knowledge_refs)}."
+                ),
                 "Trader's equation uses 5 points risk for 10 points reward.",
             ],
             action_stream=drawing_result.actions,

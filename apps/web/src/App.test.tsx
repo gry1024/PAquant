@@ -47,6 +47,7 @@ test("renders the PAquant trading workstation with fixture fallback", async () =
   expect(screen.getByText("Fill")).toBeInTheDocument();
   expect(screen.getByText("LIMIT")).toBeInTheDocument();
   expect(screen.getByText(/Snapshot 0-12/i)).toBeInTheDocument();
+  expect(screen.getByText("Knowledge refs")).toBeInTheDocument();
   expect(screen.getByText("Bar 72/72")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: /Reset replay/i }));

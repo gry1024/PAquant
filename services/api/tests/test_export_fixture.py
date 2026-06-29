@@ -20,6 +20,8 @@ def test_demo_fixture_contains_workbench_payload():
     } <= set(payload)
     assert payload["candles"][0]["symbol"] == "XAUUSD"
     assert payload["analysis"]["traderId"] == "brooks-generalist"
+    assert payload["analysis"]["knowledgeRefs"]
+    assert payload["analysis"]["knowledgeRefs"][0]["sourceRefs"]
     assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
     assert any(action["tool"] == "measure_deviation" for action in payload["agentActions"])
     assert [step["stage"] for step in payload["tradeReplay"]] == [

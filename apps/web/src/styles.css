@@ -561,6 +561,7 @@ h2 {
 }
 
 .level-list,
+.knowledge-ref-list,
 .compact-list,
 .journal-list,
 .replay-timeline,
@@ -582,6 +583,36 @@ h2 {
 
 .level-list strong {
   font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.knowledge-ref-list {
+  display: grid;
+  gap: 6px;
+}
+
+.knowledge-ref-list li {
+  padding: 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.knowledge-ref-list strong,
+.knowledge-ref-list span,
+.knowledge-ref-list small {
+  display: block;
+}
+
+.knowledge-ref-list strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.knowledge-ref-list span,
+.knowledge-ref-list small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .evidence-rail {
