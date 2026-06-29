@@ -1,0 +1,1 @@
+"""Mockable model provider adapters."""
