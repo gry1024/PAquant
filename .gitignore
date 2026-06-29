@@ -18,6 +18,7 @@ build/
 coverage/
 playwright-report/
 test-results/
+*.tsbuildinfo
 
 data/
 logs/
