@@ -4,9 +4,10 @@ import type { TraderProfile } from "../lib/workbenchTypes";
 interface TraderRosterPanelProps {
   profiles: TraderProfile[];
   activeTraderId: string;
+  onSelect: (traderId: string) => void;
 }
 
-export function TraderRosterPanel({ profiles, activeTraderId }: TraderRosterPanelProps) {
+export function TraderRosterPanel({ profiles, activeTraderId, onSelect }: TraderRosterPanelProps) {
   return (
     <section className="trader-roster" aria-label="AI trader list">
       <div className="roster-heading">
@@ -25,6 +26,7 @@ export function TraderRosterPanel({ profiles, activeTraderId }: TraderRosterPane
               type="button"
               className={isActive ? "trader-roster-card active" : "trader-roster-card"}
               aria-pressed={isActive}
+              onClick={() => onSelect(profile.id)}
               title={profile.persona}
             >
               <span className="roster-status-row">

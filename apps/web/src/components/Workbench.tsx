@@ -8,6 +8,7 @@ import {
   Ruler,
   TrendingUp
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { ChartPanel } from "./ChartPanel";
 import { JournalPanel } from "./JournalPanel";
 import { KnowledgeBrowserPanel } from "./KnowledgeBrowserPanel";
@@ -35,8 +36,14 @@ interface WorkbenchProps {
 }
 
 export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchProps) {
+  const [activeTraderId, setActiveTraderId] = useState(fixture.analysis.traderId);
+  const activeTrader = useMemo(
+    () => traderProfiles.find((profile) => profile.id === activeTraderId) ?? traderProfiles[0],
+    [activeTraderId, traderProfiles]
+  );
   const latest = fixture.candles.at(-1);
   const trade = fixture.trades.at(0);
+  const activeTraderName = activeTrader?.name ?? "Brooks Generalist";
 
   return (
     <main className="workbench-shell">
@@ -64,7 +71,7 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
           </div>
           <div className="status-strip" aria-label="Market status">
             <span>
-              <Activity size={15} /> Brooks Generalist
+              <Activity size={15} /> {activeTraderName}
             </span>
             {sourceLabel ? <span className="source-pill">{sourceLabel}</span> : null}
             <span>Last {latest?.close.toFixed(2)}</span>
@@ -74,12 +81,17 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
 
         <TraderRosterPanel
           profiles={traderProfiles}
-          activeTraderId={fixture.analysis.traderId}
+          activeTraderId={activeTraderId}
+          onSelect={setActiveTraderId}
         />
 
         <div className="main-grid">
           <ChartPanel fixture={fixture} />
-          <TraderPanel analysis={fixture.analysis} actions={fixture.agentActions} />
+          <TraderPanel
+            analysis={fixture.analysis}
+            actions={fixture.agentActions}
+            traderName={activeTraderName}
+          />
         </div>
 
         <section className="bottom-grid" aria-label="Simulation and replay audit">

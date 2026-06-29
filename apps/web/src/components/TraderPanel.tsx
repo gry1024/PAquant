@@ -4,14 +4,15 @@ import type { AgentAction, Analysis } from "../lib/workbenchTypes";
 interface TraderPanelProps {
   analysis: Analysis;
   actions: AgentAction[];
+  traderName: string;
 }
 
-export function TraderPanel({ analysis, actions }: TraderPanelProps) {
+export function TraderPanel({ analysis, actions, traderName }: TraderPanelProps) {
   return (
     <aside className="trader-panel" aria-label="AI trader analysis">
       <div className="panel-heading">
         <Brain size={16} />
-        Brooks Generalist
+        {traderName}
       </div>
       <div className="bias-board">
         <div>

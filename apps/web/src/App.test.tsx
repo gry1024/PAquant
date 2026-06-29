@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 
@@ -44,4 +44,10 @@ test("renders the PAquant trading workstation with fixture fallback", async () =
   expect(screen.getByText("Case cards")).toBeInTheDocument();
   expect(screen.getByText("Reasoning playbooks")).toBeInTheDocument();
   expect(screen.getByText("Source mapping")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: /Wedge\/Reversal Specialist/i }));
+
+  expect(within(screen.getByLabelText("AI trader analysis")).getByText(
+    "Wedge/Reversal Specialist"
+  )).toBeInTheDocument();
 });
