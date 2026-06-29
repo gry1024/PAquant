@@ -28,6 +28,9 @@ test("renders the PAquant trading workstation with fixture fallback", async () =
   expect(screen.getByText("Always-In Trend Trader")).toBeInTheDocument();
   expect(screen.getByText("Wedge/Reversal Specialist")).toBeInTheDocument();
   expect(screen.getByTestId("chart-host")).toBeInTheDocument();
+  expect(screen.getByText("Tool actions")).toBeInTheDocument();
+  expect(screen.getByText("draw_channel")).toBeInTheDocument();
+  expect(screen.getByText("measure_deviation")).toBeInTheDocument();
   expect(screen.getByText(/Simulated orders/i)).toBeInTheDocument();
   expect(screen.getByText("MFE")).toBeInTheDocument();
   expect(screen.getByText("MAE")).toBeInTheDocument();

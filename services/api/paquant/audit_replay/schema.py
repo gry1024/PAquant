@@ -34,6 +34,15 @@ DDL = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS agent_actions (
+      id INTEGER PRIMARY KEY,
+      analysis_run_id INTEGER NOT NULL,
+      sequence INTEGER NOT NULL,
+      tool TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS drawing_objects (
       id TEXT PRIMARY KEY,
       analysis_run_id INTEGER,

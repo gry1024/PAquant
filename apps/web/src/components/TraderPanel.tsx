@@ -1,11 +1,12 @@
-import { Brain, CheckCircle2, CircleDollarSign, ShieldAlert } from "lucide-react";
-import type { Analysis } from "../lib/workbenchTypes";
+import { Brain, CheckCircle2, CircleDollarSign, ShieldAlert, Wrench } from "lucide-react";
+import type { AgentAction, Analysis } from "../lib/workbenchTypes";
 
 interface TraderPanelProps {
   analysis: Analysis;
+  actions: AgentAction[];
 }
 
-export function TraderPanel({ analysis }: TraderPanelProps) {
+export function TraderPanel({ analysis, actions }: TraderPanelProps) {
   return (
     <aside className="trader-panel" aria-label="AI trader analysis">
       <div className="panel-heading">
@@ -63,6 +64,45 @@ export function TraderPanel({ analysis }: TraderPanelProps) {
           ))}
         </ol>
       </section>
+      <section className="analysis-section">
+        <h2>
+          <Wrench size={13} />
+          Tool actions
+        </h2>
+        <ol className="action-stream">
+          {actions.map((action) => (
+            <li key={`${action.sequence}-${action.tool}`}>
+              <span>{action.sequence}</span>
+              <div>
+                <strong>{action.tool}</strong>
+                <small>{action.observation}</small>
+              </div>
+              <em>{formatActionOutput(action)}</em>
+            </li>
+          ))}
+        </ol>
+      </section>
     </aside>
   );
+}
+
+function formatActionOutput(action: AgentAction) {
+  const output = action.output;
+  const points = output.points;
+  if (typeof points === "number") {
+    return `${points.toFixed(2)} pts`;
+  }
+  const bars = output.bars;
+  if (typeof bars === "number") {
+    return `${bars} bars`;
+  }
+  const swings = output.swings;
+  if (Array.isArray(swings)) {
+    return `${swings.length} swings`;
+  }
+  const price = output.price;
+  if (typeof price === "number") {
+    return `${price.toFixed(2)}`;
+  }
+  return action.chartObjectId ?? action.status;
 }

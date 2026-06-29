@@ -14,6 +14,7 @@ def test_schema_contains_phase_one_tables():
         "candles",
         "trader_profiles",
         "analysis_runs",
+        "agent_actions",
         "drawing_objects",
         "orders",
         "trades",
@@ -63,6 +64,16 @@ def test_repository_records_full_audit_artifacts():
         analysis_run_id=run_id,
         payload={"kind": "trendline", "label": "Always-in long trend line"},
     )
+    action_id = repository.record_agent_action(
+        analysis_run_id=run_id,
+        sequence=1,
+        tool="draw_trendline",
+        payload={
+            "tool": "draw_trendline",
+            "status": "ok",
+            "chart_object_id": "tl-primary",
+        },
+    )
     repository.record_order(
         order_id="sim-XAUUSD-5m-test",
         analysis_run_id=run_id,
@@ -78,9 +89,11 @@ def test_repository_records_full_audit_artifacts():
         payload={"event": "Target reached"},
     )
 
+    assert action_id > 0
     assert trade_id > 0
     assert journal_id > 0
     assert repository.count_rows("analysis_runs") == 1
+    assert repository.count_rows("agent_actions") == 1
     assert repository.count_rows("drawing_objects") == 1
     assert repository.count_rows("orders") == 1
     assert repository.count_rows("trades") == 1

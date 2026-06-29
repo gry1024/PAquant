@@ -32,7 +32,10 @@ def test_demo_workbench_endpoint_returns_chart_contract(tmp_path: Path):
     assert payload["candles"][0]["symbol"] == "XAUUSD"
     assert payload["analysis"]["traderId"] == "brooks-generalist"
     assert payload["analysis"]["modelUsage"]["provider"] == "mock"
+    assert payload["agentActions"][0]["tool"] == "find_swings"
+    assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
     assert any(obj["kind"] == "trendline" for obj in payload["chartObjects"])
+    assert any(obj["kind"] == "channel" for obj in payload["chartObjects"])
     assert payload["trades"][0]["r_multiple"] == 2.0
 
 
@@ -89,6 +92,7 @@ def test_demo_run_endpoint_persists_auditable_artifacts(tmp_path: Path):
     assert payload["meta"]["persisted"] is True
     assert payload["meta"]["recordCounts"] == {
         "analysis_runs": 1,
+        "agent_actions": len(payload["agentActions"]),
         "llm_usage": 1,
         "drawing_objects": len(payload["chartObjects"]),
         "orders": len(payload["orders"]),

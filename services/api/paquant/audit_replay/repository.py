@@ -5,6 +5,7 @@ import sqlite3
 from typing import Any
 
 _COUNTABLE_TABLES = {
+    "agent_actions",
     "analysis_runs",
     "candles",
     "drawing_objects",
@@ -35,6 +36,29 @@ class AuditRepository:
             VALUES (?, ?, ?, ?)
             """,
             (trader_id, symbol, timeframe, json.dumps(payload, ensure_ascii=False)),
+        )
+        self.connection.commit()
+        return int(cursor.lastrowid)
+
+    def record_agent_action(
+        self,
+        *,
+        analysis_run_id: int,
+        sequence: int,
+        tool: str,
+        payload: dict[str, Any],
+    ) -> int:
+        cursor = self.connection.execute(
+            """
+            INSERT INTO agent_actions (analysis_run_id, sequence, tool, payload_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                analysis_run_id,
+                sequence,
+                tool,
+                json.dumps(payload, ensure_ascii=False),
+            ),
         )
         self.connection.commit()
         return int(cursor.lastrowid)

@@ -394,6 +394,11 @@ h2 {
   stroke: var(--blue);
 }
 
+.overlay-line.channel {
+  stroke: #0f766e;
+  stroke-dasharray: 3 2;
+}
+
 .overlay-line.fib {
   stroke: var(--amber);
   stroke-dasharray: 1.4 1.2;
@@ -485,6 +490,12 @@ h2 {
   border-top: 1px solid var(--line-soft);
 }
 
+.analysis-section h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .analysis-section p {
   margin-top: 6px;
   color: #354256;
@@ -513,6 +524,7 @@ h2 {
 .level-list,
 .compact-list,
 .journal-list,
+.action-stream,
 .evidence-rail {
   padding: 0;
   margin: 8px 0 0;
@@ -558,6 +570,66 @@ h2 {
   content: counter(evidence);
   counter-increment: evidence;
   font-size: 9px;
+}
+
+.action-stream {
+  display: grid;
+  gap: 6px;
+}
+
+.action-stream li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.action-stream li > span {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #526276;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.action-stream div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.action-stream strong,
+.action-stream em {
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.action-stream strong {
+  overflow: hidden;
+  color: #17202a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-stream small {
+  color: #526276;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.action-stream em {
+  color: var(--blue);
+  white-space: nowrap;
 }
 
 .bottom-grid {

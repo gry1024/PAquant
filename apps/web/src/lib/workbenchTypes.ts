@@ -17,12 +17,21 @@ export interface AnchorPoint {
   price: number;
 }
 
+export interface TrendLineObject {
+  kind: "trendline";
+  id: string;
+  label: string;
+  anchors: [AnchorPoint, AnchorPoint];
+}
+
 export type ChartObject =
+  | TrendLineObject
   | {
-      kind: "trendline";
+      kind: "channel";
       id: string;
       label: string;
-      anchors: [AnchorPoint, AnchorPoint];
+      base: TrendLineObject;
+      parallel_anchor: AnchorPoint;
     }
   | {
       kind: "range_box";
@@ -69,6 +78,16 @@ export interface KeyLevel {
   label: string;
   price: number;
   evidence: string;
+}
+
+export interface AgentAction {
+  sequence: number;
+  tool: string;
+  status: "ok";
+  observation: string;
+  arguments: Record<string, unknown>;
+  output: Record<string, unknown>;
+  chartObjectId: string | null;
 }
 
 export interface Analysis {
@@ -256,6 +275,7 @@ export interface KnowledgeBrowser {
 export interface WorkbenchFixture {
   meta?: WorkbenchMeta;
   candles: Candle[];
+  agentActions: AgentAction[];
   chartObjects: ChartObject[];
   analysis: Analysis;
   orders: SimulatedOrder[];

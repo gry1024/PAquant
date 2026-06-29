@@ -125,6 +125,7 @@ def _with_meta(
     if repository is not None:
         meta["recordCounts"] = {
             "analysis_runs": repository.count_rows("analysis_runs"),
+            "agent_actions": repository.count_rows("agent_actions"),
             "llm_usage": repository.count_rows("llm_usage"),
             "drawing_objects": repository.count_rows("drawing_objects"),
             "orders": repository.count_rows("orders"),
@@ -152,6 +153,13 @@ def _persist_workbench_payload(repository: AuditRepository, payload: dict[str, A
         output_tokens=usage["output_tokens"],
         estimated_cost_usd=usage["estimated_cost_usd"],
     )
+    for action in payload["agentActions"]:
+        repository.record_agent_action(
+            analysis_run_id=run_id,
+            sequence=action["sequence"],
+            tool=action["tool"],
+            payload=action,
+        )
     for chart_object in payload["chartObjects"]:
         repository.record_drawing_object(
             object_id=f"{run_id}:{chart_object['id']}",

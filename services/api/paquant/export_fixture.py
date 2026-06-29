@@ -5,19 +5,19 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from paquant.agent_runtime.brooks_generalist import BrooksGeneralistTrader
+from paquant.agent_runtime.brooks_generalist import (
+    BrooksGeneralistTrader,
+    build_brooks_generalist_drawing_commands,
+)
 from paquant.data_layer.sample_data import load_sample_candles
-from paquant.drawing_engine.geometry import build_fibonacci_levels
 from paquant.drawing_engine.schemas import (
     AnchorPoint,
-    Fibonacci,
     MeasuredMove,
-    RangeBox,
     ThreePush,
     TradeMarker,
-    TrendLine,
     serialize_chart_object,
 )
+from paquant.drawing_engine.tools import AgentAction, execute_drawing_plan
 from paquant.knowledge_layer.compiler import compile_core_knowledge
 from paquant.simulation_engine.engine import SimulationEngine
 from paquant.simulation_engine.orders import SimulatedOrder
@@ -40,6 +40,18 @@ def _analysis_payload(decision) -> dict[str, Any]:
         "reasoningSummary": decision.reasoning_summary,
         "evidenceTrail": decision.evidence_trail,
         "modelUsage": decision.model_usage.model_dump(mode="json"),
+    }
+
+
+def _action_payload(action: AgentAction) -> dict[str, Any]:
+    return {
+        "sequence": action.sequence,
+        "tool": action.tool,
+        "status": action.status,
+        "observation": action.observation,
+        "arguments": action.arguments,
+        "output": action.output,
+        "chartObjectId": action.chart_object_id,
     }
 
 
@@ -114,32 +126,9 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
 def build_demo_fixture() -> dict[str, Any]:
     candles = load_sample_candles()
     knowledge = compile_core_knowledge()
-    fib_start = AnchorPoint(time_index=0, price=2306.5)
-    fib_end = AnchorPoint(time_index=24, price=2325.2)
+    drawing_result = execute_drawing_plan(candles, build_brooks_generalist_drawing_commands())
     chart_objects = [
-        TrendLine(
-            id="tl-primary",
-            label="Always-in long trend line",
-            anchors=[
-                AnchorPoint(time_index=0, price=2306.5),
-                AnchorPoint(time_index=40, price=2329.0),
-            ],
-        ),
-        RangeBox(
-            id="box-pullback",
-            label="Early pullback box",
-            start_index=0,
-            end_index=12,
-            high=2316,
-            low=2306.5,
-        ),
-        Fibonacci(
-            id="fib-swing",
-            label="Swing retracement map",
-            start=fib_start,
-            end=fib_end,
-            levels=build_fibonacci_levels(fib_start, fib_end),
-        ),
+        *drawing_result.chart_objects,
         MeasuredMove(
             id="mm-target",
             label="Measured move target",
@@ -183,6 +172,7 @@ def build_demo_fixture() -> dict[str, Any]:
 
     return {
         "candles": [candle.model_dump(mode="json") for candle in candles],
+        "agentActions": [_action_payload(action) for action in decision.action_stream],
         "chartObjects": [serialize_chart_object(obj) for obj in chart_objects],
         "analysis": _analysis_payload(decision),
         "orders": [order.model_dump(mode="json")],

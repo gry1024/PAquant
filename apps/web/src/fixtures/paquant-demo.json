@@ -937,6 +937,376 @@
       "close_position": 0.4015544041451116
     }
   ],
+  "agentActions": [
+    {
+      "sequence": 1,
+      "tool": "find_swings",
+      "status": "ok",
+      "observation": "Found 8 local swing points.",
+      "arguments": {
+        "left_strength": 2,
+        "right_strength": 2,
+        "limit": 8
+      },
+      "output": {
+        "swings": [
+          {
+            "kind": "high",
+            "anchor": {
+              "time_index": 2,
+              "price": 2313.73
+            }
+          },
+          {
+            "kind": "low",
+            "anchor": {
+              "time_index": 5,
+              "price": 2309.81
+            }
+          },
+          {
+            "kind": "high",
+            "anchor": {
+              "time_index": 7,
+              "price": 2315.54
+            }
+          },
+          {
+            "kind": "low",
+            "anchor": {
+              "time_index": 10,
+              "price": 2312.01
+            }
+          },
+          {
+            "kind": "high",
+            "anchor": {
+              "time_index": 14,
+              "price": 2320.01
+            }
+          },
+          {
+            "kind": "high",
+            "anchor": {
+              "time_index": 19,
+              "price": 2324.02
+            }
+          },
+          {
+            "kind": "low",
+            "anchor": {
+              "time_index": 21,
+              "price": 2318.45
+            }
+          },
+          {
+            "kind": "high",
+            "anchor": {
+              "time_index": 26,
+              "price": 2326.69
+            }
+          }
+        ]
+      },
+      "chartObjectId": null
+    },
+    {
+      "sequence": 2,
+      "tool": "snap_to_swing",
+      "status": "ok",
+      "observation": "Snapped probe to nearest low swing.",
+      "arguments": {
+        "time_index": 9,
+        "price": 2311.4,
+        "side": "low"
+      },
+      "output": {
+        "kind": "low",
+        "anchor": {
+          "time_index": 10,
+          "price": 2312.01
+        },
+        "distance": 1.061
+      },
+      "chartObjectId": null
+    },
+    {
+      "sequence": 3,
+      "tool": "draw_trendline",
+      "status": "ok",
+      "observation": "Drew trend line Always-in long trend line.",
+      "arguments": {
+        "id": "tl-primary",
+        "label": "Always-in long trend line",
+        "start": {
+          "time_index": 0,
+          "price": 2306.5
+        },
+        "end": {
+          "time_index": 40,
+          "price": 2329.0
+        }
+      },
+      "output": {
+        "chart_object": {
+          "kind": "trendline",
+          "id": "tl-primary",
+          "label": "Always-in long trend line",
+          "anchors": [
+            {
+              "time_index": 0,
+              "price": 2306.5
+            },
+            {
+              "time_index": 40,
+              "price": 2329.0
+            }
+          ]
+        }
+      },
+      "chartObjectId": "tl-primary"
+    },
+    {
+      "sequence": 4,
+      "tool": "draw_channel",
+      "status": "ok",
+      "observation": "Projected channel from base trend line tl-primary.",
+      "arguments": {
+        "id": "channel-primary",
+        "label": "Parallel channel projection",
+        "base_id": "tl-primary",
+        "parallel_anchor": {
+          "time_index": 17,
+          "price": 2322.4
+        }
+      },
+      "output": {
+        "chart_object": {
+          "kind": "channel",
+          "id": "channel-primary",
+          "label": "Parallel channel projection",
+          "base": {
+            "kind": "trendline",
+            "id": "tl-primary",
+            "label": "Always-in long trend line",
+            "anchors": [
+              {
+                "time_index": 0,
+                "price": 2306.5
+              },
+              {
+                "time_index": 40,
+                "price": 2329.0
+              }
+            ]
+          },
+          "parallel_anchor": {
+            "time_index": 17,
+            "price": 2322.4
+          }
+        }
+      },
+      "chartObjectId": "channel-primary"
+    },
+    {
+      "sequence": 5,
+      "tool": "draw_box",
+      "status": "ok",
+      "observation": "Marked range box Early pullback box.",
+      "arguments": {
+        "id": "box-pullback",
+        "label": "Early pullback box",
+        "start_index": 0,
+        "end_index": 12,
+        "high": 2316.0,
+        "low": 2306.5
+      },
+      "output": {
+        "chart_object": {
+          "kind": "range_box",
+          "id": "box-pullback",
+          "label": "Early pullback box",
+          "start_index": 0,
+          "end_index": 12,
+          "high": 2316.0,
+          "low": 2306.5
+        }
+      },
+      "chartObjectId": "box-pullback"
+    },
+    {
+      "sequence": 6,
+      "tool": "draw_fibonacci",
+      "status": "ok",
+      "observation": "Mapped Fibonacci levels for Swing retracement map.",
+      "arguments": {
+        "id": "fib-swing",
+        "label": "Swing retracement map",
+        "start": {
+          "time_index": 0,
+          "price": 2306.5
+        },
+        "end": {
+          "time_index": 24,
+          "price": 2325.2
+        }
+      },
+      "output": {
+        "chart_object": {
+          "kind": "fibonacci",
+          "id": "fib-swing",
+          "label": "Swing retracement map",
+          "start": {
+            "time_index": 0,
+            "price": 2306.5
+          },
+          "end": {
+            "time_index": 24,
+            "price": 2325.2
+          },
+          "levels": {
+            "0.382": 2318.0566,
+            "0.500": 2315.85,
+            "0.618": 2313.6434,
+            "1.000": 2306.5,
+            "1.618": 2294.9434
+          }
+        }
+      },
+      "chartObjectId": "fib-swing"
+    },
+    {
+      "sequence": 7,
+      "tool": "measure_leg",
+      "status": "ok",
+      "observation": "Measured leg distance and bar count.",
+      "arguments": {
+        "start": {
+          "time_index": 4,
+          "price": 2310.0
+        },
+        "end": {
+          "time_index": 18,
+          "price": 2320.0
+        }
+      },
+      "output": {
+        "points": 10.0,
+        "bars": 14,
+        "direction": "up"
+      },
+      "chartObjectId": null
+    },
+    {
+      "sequence": 8,
+      "tool": "compare_legs",
+      "status": "ok",
+      "observation": "Compared prior leg with current leg.",
+      "arguments": {
+        "first": {
+          "start": {
+            "time_index": 4,
+            "price": 2310.0
+          },
+          "end": {
+            "time_index": 18,
+            "price": 2320.0
+          }
+        },
+        "second": {
+          "start": {
+            "time_index": 20,
+            "price": 2315.0
+          },
+          "end": {
+            "time_index": 29,
+            "price": 2326.9
+          }
+        }
+      },
+      "output": {
+        "first": {
+          "points": 10.0,
+          "bars": 14,
+          "direction": "up"
+        },
+        "second": {
+          "points": 11.900000000000091,
+          "bars": 9,
+          "direction": "up"
+        },
+        "points_delta": 1.9,
+        "bars_delta": -5
+      },
+      "chartObjectId": null
+    },
+    {
+      "sequence": 9,
+      "tool": "count_bars",
+      "status": "ok",
+      "observation": "Counted 10 bars between anchors.",
+      "arguments": {
+        "start_index": 8,
+        "end_index": 17
+      },
+      "output": {
+        "start_index": 8,
+        "end_index": 17,
+        "bars": 10
+      },
+      "chartObjectId": null
+    },
+    {
+      "sequence": 10,
+      "tool": "project_line",
+      "status": "ok",
+      "observation": "Projected line value at requested bar.",
+      "arguments": {
+        "start": {
+          "time_index": 0,
+          "price": 2306.5
+        },
+        "end": {
+          "time_index": 40,
+          "price": 2329.0
+        },
+        "time_index": 60
+      },
+      "output": {
+        "time_index": 60,
+        "price": 2340.25
+      },
+      "chartObjectId": null
+    },
+    {
+      "sequence": 11,
+      "tool": "measure_deviation",
+      "status": "ok",
+      "observation": "Measured price deviation from projected line.",
+      "arguments": {
+        "start": {
+          "time_index": 0,
+          "price": 2306.5
+        },
+        "end": {
+          "time_index": 40,
+          "price": 2329.0
+        },
+        "point": {
+          "time_index": 29,
+          "price": 2326.9
+        }
+      },
+      "output": {
+        "time_index": 29,
+        "point_price": 2326.9,
+        "line_price": 2322.8125,
+        "points": 4.0875,
+        "direction": "above"
+      },
+      "chartObjectId": null
+    }
+  ],
   "chartObjects": [
     {
       "kind": "trendline",
@@ -952,6 +1322,30 @@
           "price": 2329.0
         }
       ]
+    },
+    {
+      "kind": "channel",
+      "id": "channel-primary",
+      "label": "Parallel channel projection",
+      "base": {
+        "kind": "trendline",
+        "id": "tl-primary",
+        "label": "Always-in long trend line",
+        "anchors": [
+          {
+            "time_index": 0,
+            "price": 2306.5
+          },
+          {
+            "time_index": 40,
+            "price": 2329.0
+          }
+        ]
+      },
+      "parallel_anchor": {
+        "time_index": 17,
+        "price": 2322.4
+      }
     },
     {
       "kind": "range_box",

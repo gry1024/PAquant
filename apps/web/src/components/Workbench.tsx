@@ -78,7 +78,7 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
 
         <div className="main-grid">
           <ChartPanel fixture={fixture} />
-          <TraderPanel analysis={fixture.analysis} />
+          <TraderPanel analysis={fixture.analysis} actions={fixture.agentActions} />
         </div>
 
         <section className="bottom-grid" aria-label="Simulation and replay audit">

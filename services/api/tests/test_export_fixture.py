@@ -6,6 +6,7 @@ def test_demo_fixture_contains_workbench_payload():
 
     assert {
         "candles",
+        "agentActions",
         "chartObjects",
         "analysis",
         "orders",
@@ -17,6 +18,8 @@ def test_demo_fixture_contains_workbench_payload():
     } <= set(payload)
     assert payload["candles"][0]["symbol"] == "XAUUSD"
     assert payload["analysis"]["traderId"] == "brooks-generalist"
+    assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
+    assert any(action["tool"] == "measure_deviation" for action in payload["agentActions"])
     assert payload["trades"][0]["mfe_points"] >= 10
     assert payload["trades"][0]["mae_points"] <= -3
     assert payload["performanceSummary"]["total_trades"] == 1

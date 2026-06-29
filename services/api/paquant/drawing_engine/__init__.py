@@ -1,1 +1,1 @@
-"""Structured chart drawing and geometry boundaries."""
+"""Structured chart drawing, tool commands, and geometry boundaries."""

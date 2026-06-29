@@ -10,6 +10,24 @@ function pointPair(object: Extract<ChartObject, { kind: "trendline" }>, candles:
   return object.anchors.map((anchor) => projectToOverlay(anchor, candles));
 }
 
+function linePriceAt(start: { time_index: number; price: number }, end: { time_index: number; price: number }, timeIndex: number) {
+  if (end.time_index === start.time_index) {
+    return start.price;
+  }
+  const slope = (end.price - start.price) / (end.time_index - start.time_index);
+  return start.price + slope * (timeIndex - start.time_index);
+}
+
+function channelPair(object: Extract<ChartObject, { kind: "channel" }>, candles: Candle[]) {
+  const [start, end] = object.base.anchors;
+  const anchorLinePrice = linePriceAt(start, end, object.parallel_anchor.time_index);
+  const offset = object.parallel_anchor.price - anchorLinePrice;
+  return [
+    projectToOverlay({ time_index: start.time_index, price: start.price + offset }, candles),
+    projectToOverlay({ time_index: end.time_index, price: end.price + offset }, candles)
+  ];
+}
+
 export function DrawingOverlay({ candles, objects }: DrawingOverlayProps) {
   return (
     <svg className="drawing-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -20,6 +38,20 @@ export function DrawingOverlay({ candles, objects }: DrawingOverlayProps) {
             <line
               key={object.id}
               className="overlay-line trend"
+              x1={start.x}
+              y1={start.y}
+              x2={end.x}
+              y2={end.y}
+            />
+          );
+        }
+
+        if (object.kind === "channel") {
+          const [start, end] = channelPair(object, candles);
+          return (
+            <line
+              key={object.id}
+              className="overlay-line channel"
               x1={start.x}
               y1={start.y}
               x2={end.x}
