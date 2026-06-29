@@ -55,10 +55,15 @@ def _action_payload(action: AgentAction) -> dict[str, Any]:
     }
 
 
+def _snapshot_id(stage: str) -> str:
+    return f"snapshot-{stage.replace(' ', '-')}"
+
+
 def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[str, Any]]:
     return [
         {
             "stage": "pre-entry",
+            "snapshotId": _snapshot_id("pre-entry"),
             "title": "Pre-entry",
             "time": candles[8].timestamp.isoformat(),
             "barIndex": 8,
@@ -72,6 +77,7 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
         },
         {
             "stage": "plan",
+            "snapshotId": _snapshot_id("plan"),
             "title": "Plan",
             "time": candles[10].timestamp.isoformat(),
             "barIndex": 10,
@@ -85,6 +91,7 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
         },
         {
             "stage": "execution",
+            "snapshotId": _snapshot_id("execution"),
             "title": "Execution",
             "time": candles[12].timestamp.isoformat(),
             "barIndex": 12,
@@ -95,6 +102,7 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
         },
         {
             "stage": "outcome",
+            "snapshotId": _snapshot_id("outcome"),
             "title": "Outcome",
             "time": candles[17].timestamp.isoformat(),
             "barIndex": 17,
@@ -108,6 +116,7 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
         },
         {
             "stage": "post-trade review",
+            "snapshotId": _snapshot_id("post-trade review"),
             "title": "Post-trade review",
             "time": candles[18].timestamp.isoformat(),
             "barIndex": 18,
@@ -120,6 +129,44 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
             ),
         },
     ]
+
+
+def _trade_snapshots_payload(
+    candles,
+    chart_objects: list[dict[str, Any]],
+    replay_steps: list[dict[str, Any]],
+    order: SimulatedOrder,
+) -> list[dict[str, Any]]:
+    objects_by_id = {chart_object["id"]: chart_object for chart_object in chart_objects}
+    snapshots: list[dict[str, Any]] = []
+    for step in replay_steps:
+        start_index = max(0, step["barIndex"] - 8)
+        end_index = min(len(candles) - 1, step["barIndex"] + 4)
+        window_candles = candles[start_index : end_index + 1]
+        snapshot_objects = [
+            objects_by_id[object_id]
+            for object_id in step["chartObjectIds"]
+            if object_id in objects_by_id
+        ]
+        snapshots.append(
+            {
+                "id": step["snapshotId"],
+                "tradeOrderId": order.id,
+                "stage": step["stage"],
+                "capturedAt": step["time"],
+                "candleWindow": {
+                    "startIndex": start_index,
+                    "endIndex": end_index,
+                    "symbol": "XAUUSD",
+                    "timeframe": "5m",
+                },
+                "candles": [candle.model_dump(mode="json") for candle in window_candles],
+                "chartObjectIds": step["chartObjectIds"],
+                "chartObjects": snapshot_objects,
+                "analysisSummary": step["narrative"],
+            }
+        )
+    return snapshots
 
 
 def build_knowledge_browser_payload() -> dict[str, Any]:
@@ -238,14 +285,20 @@ def build_demo_fixture() -> dict[str, Any]:
         engine.on_candle(candle)
     trade = engine.trades[0]
 
+    chart_object_payloads = [serialize_chart_object(obj) for obj in chart_objects]
+    replay_steps = _trade_replay_payload(candles, order, trade)
+
     return {
         "candles": [candle.model_dump(mode="json") for candle in candles],
         "agentActions": [_action_payload(action) for action in decision.action_stream],
-        "chartObjects": [serialize_chart_object(obj) for obj in chart_objects],
+        "chartObjects": chart_object_payloads,
         "analysis": _analysis_payload(decision),
         "orders": [order.model_dump(mode="json")],
         "trades": [trade.model_dump(mode="json") for trade in engine.trades],
-        "tradeReplay": _trade_replay_payload(candles, order, trade),
+        "tradeSnapshots": _trade_snapshots_payload(
+            candles, chart_object_payloads, replay_steps, order
+        ),
+        "tradeReplay": replay_steps,
         "equityCurve": engine.equity_curve,
         "performanceSummary": engine.performance_summary().model_dump(mode="json"),
         "journal": [

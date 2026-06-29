@@ -1512,9 +1512,1122 @@
       "outcome": "target"
     }
   ],
+  "tradeSnapshots": [
+    {
+      "id": "snapshot-pre-entry",
+      "tradeOrderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "stage": "pre-entry",
+      "capturedAt": "2026-06-30T00:40:00+00:00",
+      "candleWindow": {
+        "startIndex": 0,
+        "endIndex": 12,
+        "symbol": "XAUUSD",
+        "timeframe": "5m"
+      },
+      "candles": [
+        {
+          "timestamp": "2026-06-30T00:00:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2308.0,
+          "high": 2312.45,
+          "low": 2306.5,
+          "close": 2309.4,
+          "volume": 800.0,
+          "body": 1.400000000000091,
+          "range": 5.949999999999818,
+          "close_position": 0.48739495798322346
+        },
+        {
+          "timestamp": "2026-06-30T00:05:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2309.4,
+          "high": 2312.34,
+          "low": 2308.05,
+          "close": 2310.94,
+          "volume": 807.0,
+          "body": 1.5399999999999636,
+          "range": 4.289999999999964,
+          "close_position": 0.6736596736596497
+        },
+        {
+          "timestamp": "2026-06-30T00:10:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2310.94,
+          "high": 2313.73,
+          "low": 2309.49,
+          "close": 2312.18,
+          "volume": 814.0,
+          "body": 1.2399999999997817,
+          "range": 4.2400000000002365,
+          "close_position": 0.6344339622641284
+        },
+        {
+          "timestamp": "2026-06-30T00:15:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2312.18,
+          "high": 2313.43,
+          "low": 2309.97,
+          "close": 2311.52,
+          "volume": 821.0,
+          "body": 0.6599999999998545,
+          "range": 3.4600000000000364,
+          "close_position": 0.44797687861276464
+        },
+        {
+          "timestamp": "2026-06-30T00:20:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2311.52,
+          "high": 2312.92,
+          "low": 2309.91,
+          "close": 2311.16,
+          "volume": 828.0,
+          "body": 0.36000000000012733,
+          "range": 3.0100000000002183,
+          "close_position": 0.41528239202654793
+        },
+        {
+          "timestamp": "2026-06-30T00:25:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2311.16,
+          "high": 2314.55,
+          "low": 2309.81,
+          "close": 2313.0,
+          "volume": 835.0,
+          "body": 1.8400000000001455,
+          "range": 4.7400000000002365,
+          "close_position": 0.6729957805906952
+        },
+        {
+          "timestamp": "2026-06-30T00:30:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.0,
+          "high": 2315.39,
+          "low": 2311.55,
+          "close": 2314.14,
+          "volume": 842.0,
+          "body": 1.1399999999998727,
+          "range": 3.8399999999996908,
+          "close_position": 0.6744791666666404
+        },
+        {
+          "timestamp": "2026-06-30T00:35:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.14,
+          "high": 2315.54,
+          "low": 2311.83,
+          "close": 2313.38,
+          "volume": 849.0,
+          "body": 0.7599999999997635,
+          "range": 3.7100000000000364,
+          "close_position": 0.41778975741244384
+        },
+        {
+          "timestamp": "2026-06-30T00:40:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.38,
+          "high": 2315.27,
+          "low": 2312.13,
+          "close": 2313.72,
+          "volume": 856.0,
+          "body": 0.33999999999969077,
+          "range": 3.1399999999998727,
+          "close_position": 0.5063694267515144
+        },
+        {
+          "timestamp": "2026-06-30T00:45:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.72,
+          "high": 2314.97,
+          "low": 2312.11,
+          "close": 2313.46,
+          "volume": 863.0,
+          "body": 0.25999999999976353,
+          "range": 2.8599999999996726,
+          "close_position": 0.4720279720279943
+        },
+        {
+          "timestamp": "2026-06-30T00:50:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.46,
+          "high": 2316.1,
+          "low": 2312.01,
+          "close": 2314.7,
+          "volume": 870.0,
+          "body": 1.2399999999997817,
+          "range": 4.089999999999691,
+          "close_position": 0.6577017114913944
+        },
+        {
+          "timestamp": "2026-06-30T00:55:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.7,
+          "high": 2316.25,
+          "low": 2312.49,
+          "close": 2314.04,
+          "volume": 877.0,
+          "body": 0.6599999999998545,
+          "range": 3.7600000000002183,
+          "close_position": 0.41223404255321594
+        },
+        {
+          "timestamp": "2026-06-30T01:00:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.04,
+          "high": 2316.73,
+          "low": 2312.79,
+          "close": 2315.48,
+          "volume": 884.0,
+          "body": 1.4400000000000546,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        }
+      ],
+      "chartObjectIds": [
+        "tl-primary",
+        "channel-primary",
+        "box-pullback"
+      ],
+      "chartObjects": [
+        {
+          "kind": "trendline",
+          "id": "tl-primary",
+          "label": "Always-in long trend line",
+          "anchors": [
+            {
+              "time_index": 0,
+              "price": 2306.5
+            },
+            {
+              "time_index": 40,
+              "price": 2329.0
+            }
+          ]
+        },
+        {
+          "kind": "channel",
+          "id": "channel-primary",
+          "label": "Parallel channel projection",
+          "base": {
+            "kind": "trendline",
+            "id": "tl-primary",
+            "label": "Always-in long trend line",
+            "anchors": [
+              {
+                "time_index": 0,
+                "price": 2306.5
+              },
+              {
+                "time_index": 40,
+                "price": 2329.0
+              }
+            ]
+          },
+          "parallel_anchor": {
+            "time_index": 17,
+            "price": 2322.4
+          }
+        },
+        {
+          "kind": "range_box",
+          "id": "box-pullback",
+          "label": "Early pullback box",
+          "start_index": 0,
+          "end_index": 12,
+          "high": 2316.0,
+          "low": 2306.5
+        }
+      ],
+      "analysisSummary": "AI marked the always-in trend line, channel projection, and early pullback box before committing to a trade."
+    },
+    {
+      "id": "snapshot-plan",
+      "tradeOrderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "stage": "plan",
+      "capturedAt": "2026-06-30T00:50:00+00:00",
+      "candleWindow": {
+        "startIndex": 2,
+        "endIndex": 14,
+        "symbol": "XAUUSD",
+        "timeframe": "5m"
+      },
+      "candles": [
+        {
+          "timestamp": "2026-06-30T00:10:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2310.94,
+          "high": 2313.73,
+          "low": 2309.49,
+          "close": 2312.18,
+          "volume": 814.0,
+          "body": 1.2399999999997817,
+          "range": 4.2400000000002365,
+          "close_position": 0.6344339622641284
+        },
+        {
+          "timestamp": "2026-06-30T00:15:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2312.18,
+          "high": 2313.43,
+          "low": 2309.97,
+          "close": 2311.52,
+          "volume": 821.0,
+          "body": 0.6599999999998545,
+          "range": 3.4600000000000364,
+          "close_position": 0.44797687861276464
+        },
+        {
+          "timestamp": "2026-06-30T00:20:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2311.52,
+          "high": 2312.92,
+          "low": 2309.91,
+          "close": 2311.16,
+          "volume": 828.0,
+          "body": 0.36000000000012733,
+          "range": 3.0100000000002183,
+          "close_position": 0.41528239202654793
+        },
+        {
+          "timestamp": "2026-06-30T00:25:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2311.16,
+          "high": 2314.55,
+          "low": 2309.81,
+          "close": 2313.0,
+          "volume": 835.0,
+          "body": 1.8400000000001455,
+          "range": 4.7400000000002365,
+          "close_position": 0.6729957805906952
+        },
+        {
+          "timestamp": "2026-06-30T00:30:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.0,
+          "high": 2315.39,
+          "low": 2311.55,
+          "close": 2314.14,
+          "volume": 842.0,
+          "body": 1.1399999999998727,
+          "range": 3.8399999999996908,
+          "close_position": 0.6744791666666404
+        },
+        {
+          "timestamp": "2026-06-30T00:35:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.14,
+          "high": 2315.54,
+          "low": 2311.83,
+          "close": 2313.38,
+          "volume": 849.0,
+          "body": 0.7599999999997635,
+          "range": 3.7100000000000364,
+          "close_position": 0.41778975741244384
+        },
+        {
+          "timestamp": "2026-06-30T00:40:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.38,
+          "high": 2315.27,
+          "low": 2312.13,
+          "close": 2313.72,
+          "volume": 856.0,
+          "body": 0.33999999999969077,
+          "range": 3.1399999999998727,
+          "close_position": 0.5063694267515144
+        },
+        {
+          "timestamp": "2026-06-30T00:45:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.72,
+          "high": 2314.97,
+          "low": 2312.11,
+          "close": 2313.46,
+          "volume": 863.0,
+          "body": 0.25999999999976353,
+          "range": 2.8599999999996726,
+          "close_position": 0.4720279720279943
+        },
+        {
+          "timestamp": "2026-06-30T00:50:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.46,
+          "high": 2316.1,
+          "low": 2312.01,
+          "close": 2314.7,
+          "volume": 870.0,
+          "body": 1.2399999999997817,
+          "range": 4.089999999999691,
+          "close_position": 0.6577017114913944
+        },
+        {
+          "timestamp": "2026-06-30T00:55:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.7,
+          "high": 2316.25,
+          "low": 2312.49,
+          "close": 2314.04,
+          "volume": 877.0,
+          "body": 0.6599999999998545,
+          "range": 3.7600000000002183,
+          "close_position": 0.41223404255321594
+        },
+        {
+          "timestamp": "2026-06-30T01:00:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.04,
+          "high": 2316.73,
+          "low": 2312.79,
+          "close": 2315.48,
+          "volume": 884.0,
+          "body": 1.4400000000000546,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        },
+        {
+          "timestamp": "2026-06-30T01:05:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2315.48,
+          "high": 2318.72,
+          "low": 2314.13,
+          "close": 2317.32,
+          "volume": 891.0,
+          "body": 1.8400000000001455,
+          "range": 4.589999999999691,
+          "close_position": 0.6949891067538714
+        },
+        {
+          "timestamp": "2026-06-30T01:10:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.32,
+          "high": 2320.01,
+          "low": 2315.87,
+          "close": 2318.46,
+          "volume": 898.0,
+          "body": 1.1399999999998727,
+          "range": 4.140000000000327,
+          "close_position": 0.6256038647342852
+        }
+      ],
+      "chartObjectIds": [
+        "fib-swing",
+        "tl-primary"
+      ],
+      "chartObjects": [
+        {
+          "kind": "fibonacci",
+          "id": "fib-swing",
+          "label": "Swing retracement map",
+          "start": {
+            "time_index": 0,
+            "price": 2306.5
+          },
+          "end": {
+            "time_index": 24,
+            "price": 2325.2
+          },
+          "levels": {
+            "0.382": 2318.0566,
+            "0.500": 2315.85,
+            "0.618": 2313.6434,
+            "1.000": 2306.5,
+            "1.618": 2294.9434
+          }
+        },
+        {
+          "kind": "trendline",
+          "id": "tl-primary",
+          "label": "Always-in long trend line",
+          "anchors": [
+            {
+              "time_index": 0,
+              "price": 2306.5
+            },
+            {
+              "time_index": 40,
+              "price": 2329.0
+            }
+          ]
+        }
+      ],
+      "analysisSummary": "Limit buy plan used 5 points of risk and a 2R target while the pullback held above the invalidation price."
+    },
+    {
+      "id": "snapshot-execution",
+      "tradeOrderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "stage": "execution",
+      "capturedAt": "2026-06-30T01:00:00+00:00",
+      "candleWindow": {
+        "startIndex": 4,
+        "endIndex": 16,
+        "symbol": "XAUUSD",
+        "timeframe": "5m"
+      },
+      "candles": [
+        {
+          "timestamp": "2026-06-30T00:20:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2311.52,
+          "high": 2312.92,
+          "low": 2309.91,
+          "close": 2311.16,
+          "volume": 828.0,
+          "body": 0.36000000000012733,
+          "range": 3.0100000000002183,
+          "close_position": 0.41528239202654793
+        },
+        {
+          "timestamp": "2026-06-30T00:25:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2311.16,
+          "high": 2314.55,
+          "low": 2309.81,
+          "close": 2313.0,
+          "volume": 835.0,
+          "body": 1.8400000000001455,
+          "range": 4.7400000000002365,
+          "close_position": 0.6729957805906952
+        },
+        {
+          "timestamp": "2026-06-30T00:30:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.0,
+          "high": 2315.39,
+          "low": 2311.55,
+          "close": 2314.14,
+          "volume": 842.0,
+          "body": 1.1399999999998727,
+          "range": 3.8399999999996908,
+          "close_position": 0.6744791666666404
+        },
+        {
+          "timestamp": "2026-06-30T00:35:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.14,
+          "high": 2315.54,
+          "low": 2311.83,
+          "close": 2313.38,
+          "volume": 849.0,
+          "body": 0.7599999999997635,
+          "range": 3.7100000000000364,
+          "close_position": 0.41778975741244384
+        },
+        {
+          "timestamp": "2026-06-30T00:40:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.38,
+          "high": 2315.27,
+          "low": 2312.13,
+          "close": 2313.72,
+          "volume": 856.0,
+          "body": 0.33999999999969077,
+          "range": 3.1399999999998727,
+          "close_position": 0.5063694267515144
+        },
+        {
+          "timestamp": "2026-06-30T00:45:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.72,
+          "high": 2314.97,
+          "low": 2312.11,
+          "close": 2313.46,
+          "volume": 863.0,
+          "body": 0.25999999999976353,
+          "range": 2.8599999999996726,
+          "close_position": 0.4720279720279943
+        },
+        {
+          "timestamp": "2026-06-30T00:50:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.46,
+          "high": 2316.1,
+          "low": 2312.01,
+          "close": 2314.7,
+          "volume": 870.0,
+          "body": 1.2399999999997817,
+          "range": 4.089999999999691,
+          "close_position": 0.6577017114913944
+        },
+        {
+          "timestamp": "2026-06-30T00:55:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.7,
+          "high": 2316.25,
+          "low": 2312.49,
+          "close": 2314.04,
+          "volume": 877.0,
+          "body": 0.6599999999998545,
+          "range": 3.7600000000002183,
+          "close_position": 0.41223404255321594
+        },
+        {
+          "timestamp": "2026-06-30T01:00:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.04,
+          "high": 2316.73,
+          "low": 2312.79,
+          "close": 2315.48,
+          "volume": 884.0,
+          "body": 1.4400000000000546,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        },
+        {
+          "timestamp": "2026-06-30T01:05:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2315.48,
+          "high": 2318.72,
+          "low": 2314.13,
+          "close": 2317.32,
+          "volume": 891.0,
+          "body": 1.8400000000001455,
+          "range": 4.589999999999691,
+          "close_position": 0.6949891067538714
+        },
+        {
+          "timestamp": "2026-06-30T01:10:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.32,
+          "high": 2320.01,
+          "low": 2315.87,
+          "close": 2318.46,
+          "volume": 898.0,
+          "body": 1.1399999999998727,
+          "range": 4.140000000000327,
+          "close_position": 0.6256038647342852
+        },
+        {
+          "timestamp": "2026-06-30T01:15:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2318.46,
+          "high": 2319.71,
+          "low": 2316.15,
+          "close": 2317.7,
+          "volume": 905.0,
+          "body": 0.7600000000002183,
+          "range": 3.5599999999999454,
+          "close_position": 0.4353932584268963
+        },
+        {
+          "timestamp": "2026-06-30T01:20:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.7,
+          "high": 2319.44,
+          "low": 2316.45,
+          "close": 2318.04,
+          "volume": 912.0,
+          "body": 0.3400000000001455,
+          "range": 2.9900000000002365,
+          "close_position": 0.5317725752508428
+        }
+      ],
+      "chartObjectIds": [
+        "entry-marker"
+      ],
+      "chartObjects": [
+        {
+          "kind": "trade_marker",
+          "id": "entry-marker",
+          "label": "Sim entry",
+          "time_index": 0,
+          "price": 2310.0,
+          "marker_type": "entry"
+        }
+      ],
+      "analysisSummary": "Simulated limit order filled inside the pullback zone."
+    },
+    {
+      "id": "snapshot-outcome",
+      "tradeOrderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "stage": "outcome",
+      "capturedAt": "2026-06-30T01:25:00+00:00",
+      "candleWindow": {
+        "startIndex": 9,
+        "endIndex": 21,
+        "symbol": "XAUUSD",
+        "timeframe": "5m"
+      },
+      "candles": [
+        {
+          "timestamp": "2026-06-30T00:45:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.72,
+          "high": 2314.97,
+          "low": 2312.11,
+          "close": 2313.46,
+          "volume": 863.0,
+          "body": 0.25999999999976353,
+          "range": 2.8599999999996726,
+          "close_position": 0.4720279720279943
+        },
+        {
+          "timestamp": "2026-06-30T00:50:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.46,
+          "high": 2316.1,
+          "low": 2312.01,
+          "close": 2314.7,
+          "volume": 870.0,
+          "body": 1.2399999999997817,
+          "range": 4.089999999999691,
+          "close_position": 0.6577017114913944
+        },
+        {
+          "timestamp": "2026-06-30T00:55:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.7,
+          "high": 2316.25,
+          "low": 2312.49,
+          "close": 2314.04,
+          "volume": 877.0,
+          "body": 0.6599999999998545,
+          "range": 3.7600000000002183,
+          "close_position": 0.41223404255321594
+        },
+        {
+          "timestamp": "2026-06-30T01:00:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.04,
+          "high": 2316.73,
+          "low": 2312.79,
+          "close": 2315.48,
+          "volume": 884.0,
+          "body": 1.4400000000000546,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        },
+        {
+          "timestamp": "2026-06-30T01:05:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2315.48,
+          "high": 2318.72,
+          "low": 2314.13,
+          "close": 2317.32,
+          "volume": 891.0,
+          "body": 1.8400000000001455,
+          "range": 4.589999999999691,
+          "close_position": 0.6949891067538714
+        },
+        {
+          "timestamp": "2026-06-30T01:10:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.32,
+          "high": 2320.01,
+          "low": 2315.87,
+          "close": 2318.46,
+          "volume": 898.0,
+          "body": 1.1399999999998727,
+          "range": 4.140000000000327,
+          "close_position": 0.6256038647342852
+        },
+        {
+          "timestamp": "2026-06-30T01:15:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2318.46,
+          "high": 2319.71,
+          "low": 2316.15,
+          "close": 2317.7,
+          "volume": 905.0,
+          "body": 0.7600000000002183,
+          "range": 3.5599999999999454,
+          "close_position": 0.4353932584268963
+        },
+        {
+          "timestamp": "2026-06-30T01:20:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.7,
+          "high": 2319.44,
+          "low": 2316.45,
+          "close": 2318.04,
+          "volume": 912.0,
+          "body": 0.3400000000001455,
+          "range": 2.9900000000002365,
+          "close_position": 0.5317725752508428
+        },
+        {
+          "timestamp": "2026-06-30T01:25:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2318.04,
+          "high": 2322.93,
+          "low": 2316.69,
+          "close": 2321.38,
+          "volume": 919.0,
+          "body": 3.3400000000001455,
+          "range": 6.239999999999782,
+          "close_position": 0.7516025641025992
+        },
+        {
+          "timestamp": "2026-06-30T01:30:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2321.38,
+          "high": 2323.87,
+          "low": 2319.93,
+          "close": 2322.62,
+          "volume": 926.0,
+          "body": 1.2399999999997817,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        },
+        {
+          "timestamp": "2026-06-30T01:35:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2322.62,
+          "high": 2324.02,
+          "low": 2320.41,
+          "close": 2321.96,
+          "volume": 933.0,
+          "body": 0.6599999999998545,
+          "range": 3.6100000000001273,
+          "close_position": 0.42936288088646185
+        },
+        {
+          "timestamp": "2026-06-30T01:40:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2321.96,
+          "high": 2323.51,
+          "low": 2318.55,
+          "close": 2319.8,
+          "volume": 940.0,
+          "body": 2.1599999999998545,
+          "range": 4.960000000000036,
+          "close_position": 0.25201612903225623
+        },
+        {
+          "timestamp": "2026-06-30T01:45:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2319.8,
+          "high": 2322.89,
+          "low": 2318.45,
+          "close": 2321.64,
+          "volume": 947.0,
+          "body": 1.8399999999996908,
+          "range": 4.440000000000055,
+          "close_position": 0.7184684684684719
+        }
+      ],
+      "chartObjectIds": [
+        "target-marker",
+        "mm-target"
+      ],
+      "chartObjects": [
+        {
+          "kind": "trade_marker",
+          "id": "target-marker",
+          "label": "2R target",
+          "time_index": 17,
+          "price": 2320.0,
+          "marker_type": "target"
+        },
+        {
+          "kind": "measured_move",
+          "id": "mm-target",
+          "label": "Measured move target",
+          "start": {
+            "time_index": 4,
+            "price": 2310.0
+          },
+          "end": {
+            "time_index": 18,
+            "price": 2320.0
+          },
+          "projected_from": {
+            "time_index": 20,
+            "price": 2315.0
+          },
+          "target_price": 2325.0
+        }
+      ],
+      "analysisSummary": "Trade reached target for 2.0R with 10.01 points MFE."
+    },
+    {
+      "id": "snapshot-post-trade-review",
+      "tradeOrderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "stage": "post-trade review",
+      "capturedAt": "2026-06-30T01:30:00+00:00",
+      "candleWindow": {
+        "startIndex": 10,
+        "endIndex": 22,
+        "symbol": "XAUUSD",
+        "timeframe": "5m"
+      },
+      "candles": [
+        {
+          "timestamp": "2026-06-30T00:50:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2313.46,
+          "high": 2316.1,
+          "low": 2312.01,
+          "close": 2314.7,
+          "volume": 870.0,
+          "body": 1.2399999999997817,
+          "range": 4.089999999999691,
+          "close_position": 0.6577017114913944
+        },
+        {
+          "timestamp": "2026-06-30T00:55:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.7,
+          "high": 2316.25,
+          "low": 2312.49,
+          "close": 2314.04,
+          "volume": 877.0,
+          "body": 0.6599999999998545,
+          "range": 3.7600000000002183,
+          "close_position": 0.41223404255321594
+        },
+        {
+          "timestamp": "2026-06-30T01:00:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2314.04,
+          "high": 2316.73,
+          "low": 2312.79,
+          "close": 2315.48,
+          "volume": 884.0,
+          "body": 1.4400000000000546,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        },
+        {
+          "timestamp": "2026-06-30T01:05:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2315.48,
+          "high": 2318.72,
+          "low": 2314.13,
+          "close": 2317.32,
+          "volume": 891.0,
+          "body": 1.8400000000001455,
+          "range": 4.589999999999691,
+          "close_position": 0.6949891067538714
+        },
+        {
+          "timestamp": "2026-06-30T01:10:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.32,
+          "high": 2320.01,
+          "low": 2315.87,
+          "close": 2318.46,
+          "volume": 898.0,
+          "body": 1.1399999999998727,
+          "range": 4.140000000000327,
+          "close_position": 0.6256038647342852
+        },
+        {
+          "timestamp": "2026-06-30T01:15:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2318.46,
+          "high": 2319.71,
+          "low": 2316.15,
+          "close": 2317.7,
+          "volume": 905.0,
+          "body": 0.7600000000002183,
+          "range": 3.5599999999999454,
+          "close_position": 0.4353932584268963
+        },
+        {
+          "timestamp": "2026-06-30T01:20:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2317.7,
+          "high": 2319.44,
+          "low": 2316.45,
+          "close": 2318.04,
+          "volume": 912.0,
+          "body": 0.3400000000001455,
+          "range": 2.9900000000002365,
+          "close_position": 0.5317725752508428
+        },
+        {
+          "timestamp": "2026-06-30T01:25:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2318.04,
+          "high": 2322.93,
+          "low": 2316.69,
+          "close": 2321.38,
+          "volume": 919.0,
+          "body": 3.3400000000001455,
+          "range": 6.239999999999782,
+          "close_position": 0.7516025641025992
+        },
+        {
+          "timestamp": "2026-06-30T01:30:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2321.38,
+          "high": 2323.87,
+          "low": 2319.93,
+          "close": 2322.62,
+          "volume": 926.0,
+          "body": 1.2399999999997817,
+          "range": 3.9400000000000546,
+          "close_position": 0.6827411167512735
+        },
+        {
+          "timestamp": "2026-06-30T01:35:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2322.62,
+          "high": 2324.02,
+          "low": 2320.41,
+          "close": 2321.96,
+          "volume": 933.0,
+          "body": 0.6599999999998545,
+          "range": 3.6100000000001273,
+          "close_position": 0.42936288088646185
+        },
+        {
+          "timestamp": "2026-06-30T01:40:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2321.96,
+          "high": 2323.51,
+          "low": 2318.55,
+          "close": 2319.8,
+          "volume": 940.0,
+          "body": 2.1599999999998545,
+          "range": 4.960000000000036,
+          "close_position": 0.25201612903225623
+        },
+        {
+          "timestamp": "2026-06-30T01:45:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2319.8,
+          "high": 2322.89,
+          "low": 2318.45,
+          "close": 2321.64,
+          "volume": 947.0,
+          "body": 1.8399999999996908,
+          "range": 4.440000000000055,
+          "close_position": 0.7184684684684719
+        },
+        {
+          "timestamp": "2026-06-30T01:50:00Z",
+          "symbol": "XAUUSD",
+          "timeframe": "5m",
+          "open": 2321.64,
+          "high": 2324.18,
+          "low": 2320.19,
+          "close": 2322.78,
+          "volume": 954.0,
+          "body": 1.1400000000003274,
+          "range": 3.9899999999997817,
+          "close_position": 0.6491228070176158
+        }
+      ],
+      "chartObjectIds": [
+        "three-push",
+        "channel-primary"
+      ],
+      "chartObjects": [
+        {
+          "kind": "three_push",
+          "id": "three-push",
+          "label": "Three pushes within channel",
+          "pushes": [
+            {
+              "time_index": 8,
+              "price": 2314.1
+            },
+            {
+              "time_index": 17,
+              "price": 2320.8
+            },
+            {
+              "time_index": 29,
+              "price": 2326.9
+            }
+          ]
+        },
+        {
+          "kind": "channel",
+          "id": "channel-primary",
+          "label": "Parallel channel projection",
+          "base": {
+            "kind": "trendline",
+            "id": "tl-primary",
+            "label": "Always-in long trend line",
+            "anchors": [
+              {
+                "time_index": 0,
+                "price": 2306.5
+              },
+              {
+                "time_index": 40,
+                "price": 2329.0
+              }
+            ]
+          },
+          "parallel_anchor": {
+            "time_index": 17,
+            "price": 2322.4
+          }
+        }
+      ],
+      "analysisSummary": "Review notes that the channel context and measured target were aligned; future invalidation remains a break below the prior swing."
+    }
+  ],
   "tradeReplay": [
     {
       "stage": "pre-entry",
+      "snapshotId": "snapshot-pre-entry",
       "title": "Pre-entry",
       "time": "2026-06-30T00:40:00+00:00",
       "barIndex": 8,
@@ -1529,6 +2642,7 @@
     },
     {
       "stage": "plan",
+      "snapshotId": "snapshot-plan",
       "title": "Plan",
       "time": "2026-06-30T00:50:00+00:00",
       "barIndex": 10,
@@ -1542,6 +2656,7 @@
     },
     {
       "stage": "execution",
+      "snapshotId": "snapshot-execution",
       "title": "Execution",
       "time": "2026-06-30T01:00:00+00:00",
       "barIndex": 12,
@@ -1554,6 +2669,7 @@
     },
     {
       "stage": "outcome",
+      "snapshotId": "snapshot-outcome",
       "title": "Outcome",
       "time": "2026-06-30T01:25:00+00:00",
       "barIndex": 17,
@@ -1567,6 +2683,7 @@
     },
     {
       "stage": "post-trade review",
+      "snapshotId": "snapshot-post-trade-review",
       "title": "Post-trade review",
       "time": "2026-06-30T01:30:00+00:00",
       "barIndex": 18,

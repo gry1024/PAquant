@@ -97,7 +97,7 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
         <section className="bottom-grid" aria-label="Simulation and replay audit">
           <OrdersPanel orders={fixture.orders} trades={fixture.trades} />
           <JournalPanel entries={fixture.journal} />
-          <TradeReplayPanel steps={fixture.tradeReplay} />
+          <TradeReplayPanel steps={fixture.tradeReplay} snapshots={fixture.tradeSnapshots} />
           <PerformanceStrip
             equityCurve={fixture.equityCurve}
             summary={fixture.performanceSummary}

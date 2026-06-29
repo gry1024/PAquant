@@ -275,6 +275,17 @@ class AuditRepository:
         self.connection.commit()
         return int(cursor.lastrowid)
 
+    def record_trade_snapshot(self, *, trade_id: int, payload: dict[str, Any]) -> int:
+        cursor = self.connection.execute(
+            """
+            INSERT INTO trade_snapshots (trade_id, payload_json)
+            VALUES (?, ?)
+            """,
+            (trade_id, json.dumps(payload, ensure_ascii=False)),
+        )
+        self.connection.commit()
+        return int(cursor.lastrowid)
+
     def record_journal(
         self, *, analysis_run_id: int, entry_type: str, payload: dict[str, Any]
     ) -> int:

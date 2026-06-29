@@ -36,6 +36,8 @@ def test_demo_workbench_endpoint_returns_chart_contract(tmp_path: Path):
     assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
     assert payload["tradeReplay"][-1]["stage"] == "post-trade review"
     assert payload["tradeReplay"][-1]["outcome"] == "target"
+    assert payload["tradeReplay"][-1]["snapshotId"] == payload["tradeSnapshots"][-1]["id"]
+    assert payload["tradeSnapshots"][-1]["chartObjects"]
     assert any(obj["kind"] == "trendline" for obj in payload["chartObjects"])
     assert any(obj["kind"] == "channel" for obj in payload["chartObjects"])
     assert payload["trades"][0]["r_multiple"] == 2.0
@@ -99,6 +101,7 @@ def test_demo_run_endpoint_persists_auditable_artifacts(tmp_path: Path):
         "drawing_objects": len(payload["chartObjects"]),
         "orders": len(payload["orders"]),
         "trades": len(payload["trades"]),
+        "trade_snapshots": len(payload["tradeSnapshots"]),
         "journals": len(payload["journal"]),
     }
 

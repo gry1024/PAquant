@@ -130,6 +130,7 @@ def _with_meta(
             "drawing_objects": repository.count_rows("drawing_objects"),
             "orders": repository.count_rows("orders"),
             "trades": repository.count_rows("trades"),
+            "trade_snapshots": repository.count_rows("trade_snapshots"),
             "journals": repository.count_rows("journals"),
         }
     enriched["meta"] = meta
@@ -172,8 +173,16 @@ def _persist_workbench_payload(repository: AuditRepository, payload: dict[str, A
             analysis_run_id=run_id,
             payload=order,
         )
+    trade_row_ids_by_order_id: dict[str, int] = {}
     for trade in payload["trades"]:
-        repository.record_trade(order_id=f"{run_id}:{trade['order_id']}", payload=trade)
+        trade_id = repository.record_trade(
+            order_id=f"{run_id}:{trade['order_id']}", payload=trade
+        )
+        trade_row_ids_by_order_id[trade["order_id"]] = trade_id
+    for snapshot in payload.get("tradeSnapshots", []):
+        trade_id = trade_row_ids_by_order_id.get(snapshot["tradeOrderId"])
+        if trade_id is not None:
+            repository.record_trade_snapshot(trade_id=trade_id, payload=snapshot)
     for journal_entry in payload["journal"]:
         repository.record_journal(
             analysis_run_id=run_id,

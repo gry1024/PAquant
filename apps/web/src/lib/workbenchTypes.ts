@@ -164,6 +164,7 @@ export interface JournalEntry {
 
 export interface TradeReplayStep {
   stage: "pre-entry" | "plan" | "execution" | "outcome" | "post-trade review";
+  snapshotId: string;
   title: string;
   time: string;
   barIndex: number;
@@ -171,6 +172,23 @@ export interface TradeReplayStep {
   orderId: string | null;
   outcome: string;
   narrative: string;
+}
+
+export interface TradeSnapshot {
+  id: string;
+  tradeOrderId: string;
+  stage: TradeReplayStep["stage"];
+  capturedAt: string;
+  candleWindow: {
+    startIndex: number;
+    endIndex: number;
+    symbol: "XAUUSD";
+    timeframe: "5m";
+  };
+  candles: Candle[];
+  chartObjectIds: string[];
+  chartObjects: ChartObject[];
+  analysisSummary: string;
 }
 
 export interface SetupPerformance {
@@ -293,6 +311,7 @@ export interface WorkbenchFixture {
   analysis: Analysis;
   orders: SimulatedOrder[];
   trades: SimulatedTrade[];
+  tradeSnapshots: TradeSnapshot[];
   tradeReplay: TradeReplayStep[];
   equityCurve: EquityPoint[];
   performanceSummary: PerformanceSummary;

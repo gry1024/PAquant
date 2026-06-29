@@ -98,6 +98,14 @@ def test_repository_records_full_audit_artifacts():
         order_id="sim-XAUUSD-5m-test",
         payload={"outcome": "target", "r_multiple": 2.0},
     )
+    snapshot_id = repository.record_trade_snapshot(
+        trade_id=trade_id,
+        payload={
+            "id": "snapshot-outcome",
+            "candleWindow": {"startIndex": 0, "endIndex": 12},
+            "chartObjectIds": ["tl-primary"],
+        },
+    )
     journal_id = repository.record_journal(
         analysis_run_id=run_id,
         entry_type="trade-review",
@@ -106,12 +114,14 @@ def test_repository_records_full_audit_artifacts():
 
     assert action_id > 0
     assert trade_id > 0
+    assert snapshot_id > 0
     assert journal_id > 0
     assert repository.count_rows("analysis_runs") == 1
     assert repository.count_rows("agent_actions") == 1
     assert repository.count_rows("drawing_objects") == 1
     assert repository.count_rows("orders") == 1
     assert repository.count_rows("trades") == 1
+    assert repository.count_rows("trade_snapshots") == 1
     assert repository.count_rows("journals") == 1
 
 
