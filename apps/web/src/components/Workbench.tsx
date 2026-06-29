@@ -37,11 +37,18 @@ interface WorkbenchProps {
 
 export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchProps) {
   const [activeTraderId, setActiveTraderId] = useState(fixture.analysis.traderId);
+  const [visibleCandleCount, setVisibleCandleCount] = useState(fixture.candles.length);
   const activeTrader = useMemo(
     () => traderProfiles.find((profile) => profile.id === activeTraderId) ?? traderProfiles[0],
     [activeTraderId, traderProfiles]
   );
-  const latest = fixture.candles.at(-1);
+  const totalCandleCount = fixture.candles.length;
+  const boundedVisibleCandleCount = Math.min(
+    Math.max(visibleCandleCount, 1),
+    totalCandleCount
+  );
+  const firstReplayCount = (fixture.tradeReplay[0]?.barIndex ?? 0) + 1;
+  const latest = fixture.candles[boundedVisibleCandleCount - 1] ?? fixture.candles.at(-1);
   const trade = fixture.trades.at(0);
   const activeTraderName = activeTrader?.name ?? "Brooks Generalist";
 
@@ -86,7 +93,16 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
         />
 
         <div className="main-grid">
-          <ChartPanel fixture={fixture} />
+          <ChartPanel
+            fixture={fixture}
+            visibleCandleCount={boundedVisibleCandleCount}
+            onResetReplay={() => setVisibleCandleCount(firstReplayCount)}
+            onStepBack={() => setVisibleCandleCount((count) => Math.max(1, count - 1))}
+            onStepForward={() =>
+              setVisibleCandleCount((count) => Math.min(totalCandleCount, count + 1))
+            }
+            onShowAll={() => setVisibleCandleCount(totalCandleCount)}
+          />
           <TraderPanel
             analysis={fixture.analysis}
             actions={fixture.agentActions}

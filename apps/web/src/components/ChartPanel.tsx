@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { ChevronLeft, ChevronRight, RotateCcw, SkipForward } from "lucide-react";
 import { CandlestickSeries, ColorType, createChart } from "lightweight-charts";
 import { DrawingOverlay } from "./DrawingOverlay";
 import { toChartCandles } from "../lib/chartTransforms";
@@ -6,11 +7,27 @@ import type { WorkbenchFixture } from "../lib/workbenchTypes";
 
 interface ChartPanelProps {
   fixture: WorkbenchFixture;
+  visibleCandleCount: number;
+  onResetReplay: () => void;
+  onStepBack: () => void;
+  onStepForward: () => void;
+  onShowAll: () => void;
 }
 
-export function ChartPanel({ fixture }: ChartPanelProps) {
+export function ChartPanel({
+  fixture,
+  visibleCandleCount,
+  onResetReplay,
+  onStepBack,
+  onStepForward,
+  onShowAll
+}: ChartPanelProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const chartData = useMemo(() => toChartCandles(fixture.candles), [fixture.candles]);
+  const visibleCandles = useMemo(
+    () => fixture.candles.slice(0, visibleCandleCount),
+    [fixture.candles, visibleCandleCount]
+  );
+  const chartData = useMemo(() => toChartCandles(visibleCandles), [visibleCandles]);
 
   useEffect(() => {
     const container = hostRef.current;
@@ -58,8 +75,10 @@ export function ChartPanel({ fixture }: ChartPanelProps) {
     };
   }, [chartData]);
 
-  const first = fixture.candles[0];
-  const last = fixture.candles.at(-1) ?? first;
+  const first = visibleCandles[0] ?? fixture.candles[0];
+  const last = visibleCandles.at(-1) ?? first;
+  const isAtStart = visibleCandleCount <= 1;
+  const isAtEnd = visibleCandleCount >= fixture.candles.length;
 
   return (
     <section className="chart-panel" aria-label="XAU 5 minute chart">
@@ -73,10 +92,54 @@ export function ChartPanel({ fixture }: ChartPanelProps) {
           <span>Close {last.close.toFixed(2)}</span>
           <span>{fixture.chartObjects.length} drawings</span>
         </div>
+        <div className="replay-controls" aria-label="Replay controls">
+          <button
+            type="button"
+            className="replay-button"
+            aria-label="Reset replay"
+            title="Reset replay"
+            onClick={onResetReplay}
+          >
+            <RotateCcw size={15} />
+          </button>
+          <button
+            type="button"
+            className="replay-button"
+            aria-label="Previous bar"
+            title="Previous bar"
+            onClick={onStepBack}
+            disabled={isAtStart}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="replay-counter">
+            Bar {visibleCandleCount}/{fixture.candles.length}
+          </span>
+          <button
+            type="button"
+            className="replay-button"
+            aria-label="Next bar"
+            title="Next bar"
+            onClick={onStepForward}
+            disabled={isAtEnd}
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button
+            type="button"
+            className="replay-button"
+            aria-label="Show full replay"
+            title="Show full replay"
+            onClick={onShowAll}
+            disabled={isAtEnd}
+          >
+            <SkipForward size={15} />
+          </button>
+        </div>
       </div>
       <div className="chart-stage">
         <div ref={hostRef} className="chart-host" data-testid="chart-host" />
-        <DrawingOverlay candles={fixture.candles} objects={fixture.chartObjects} />
+        <DrawingOverlay candles={visibleCandles} objects={fixture.chartObjects} />
       </div>
     </section>
   );
