@@ -1480,12 +1480,14 @@
       "timeframe": "5m",
       "side": "buy",
       "order_type": "limit",
+      "activation_price": null,
       "entry": 2310.0,
       "stop": 2305.0,
       "target": 2320.0,
       "quantity": 1.0,
       "setup_name": "Brooks pullback in always-in long context",
-      "status": "closed"
+      "status": "closed",
+      "filled_entry": 2310.0
     }
   ],
   "trades": [

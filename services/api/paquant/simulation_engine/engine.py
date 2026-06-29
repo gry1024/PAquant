@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from paquant.data_layer.schemas import Candle
 from paquant.simulation_engine.orders import (
+    ExecutionSettings,
     OrderSide,
     OrderStatus,
     OrderType,
@@ -18,10 +19,12 @@ class SimulationEngine:
         self,
         starting_equity: float,
         risk_settings: RiskSettings | None = None,
+        execution_settings: ExecutionSettings | None = None,
     ) -> None:
         self.starting_equity = starting_equity
         self.equity = starting_equity
         self.risk_settings = risk_settings or RiskSettings()
+        self.execution_settings = execution_settings or ExecutionSettings()
         self.orders: list[SimulatedOrder] = []
         self.trades: list[SimulatedTrade] = []
         self._open_orders: list[SimulatedOrder] = []
@@ -68,8 +71,12 @@ class SimulationEngine:
 
     def on_candle(self, candle: Candle) -> None:
         for order in list(self._open_orders):
+            if self._should_trigger_stop_limit(order, candle):
+                order.status = OrderStatus.TRIGGERED
+                continue
             if self._should_fill(order, candle):
                 order.status = OrderStatus.FILLED
+                order.filled_entry = self._entry_fill_price(order)
                 self._open_orders.remove(order)
                 self._open_positions.append(order)
                 self._position_excursions[order.id] = {"mfe": 0.0, "mae": 0.0}
@@ -90,11 +97,26 @@ class SimulationEngine:
     def _should_fill(self, order: SimulatedOrder, candle: Candle) -> bool:
         if order.order_type == OrderType.MARKET:
             return True
+        if order.order_type == OrderType.STOP_LIMIT:
+            if order.status != OrderStatus.TRIGGERED:
+                return False
+            return candle.low <= order.entry <= candle.high
         if order.order_type == OrderType.STOP:
             if order.side == OrderSide.BUY:
                 return candle.high >= order.entry
             return candle.low <= order.entry
         return candle.low <= order.entry <= candle.high
+
+    def _should_trigger_stop_limit(self, order: SimulatedOrder, candle: Candle) -> bool:
+        if order.order_type != OrderType.STOP_LIMIT:
+            return False
+        if order.status != OrderStatus.SUBMITTED:
+            return False
+        if order.activation_price is None:
+            return False
+        if order.side == OrderSide.BUY:
+            return candle.high >= order.activation_price
+        return candle.low <= order.activation_price
 
     def _maybe_close(self, order: SimulatedOrder, candle: Candle) -> SimulatedTrade | None:
         if order.side == OrderSide.BUY:
@@ -114,12 +136,14 @@ class SimulationEngine:
         return None
 
     def _close(self, order: SimulatedOrder, exit_price: float, outcome: str) -> SimulatedTrade:
-        risk_points = abs(order.entry - order.stop)
-        signed_points = exit_price - order.entry
+        entry_price = order.filled_entry if order.filled_entry is not None else order.entry
+        actual_exit = self._exit_fill_price(order, exit_price)
+        risk_points = round(abs(entry_price - order.stop), 10)
+        signed_points = actual_exit - entry_price
         if order.side == OrderSide.SELL:
             signed_points *= -1
-        pnl = signed_points * order.quantity
-        r_multiple = pnl / (risk_points * order.quantity) if risk_points else 0
+        pnl = round(signed_points * order.quantity, 10)
+        r_multiple = round(pnl / (risk_points * order.quantity), 10) if risk_points else 0
         excursion = self._position_excursions.get(order.id, {"mfe": 0.0, "mae": 0.0})
         max_favorable_r = excursion["mfe"] / risk_points if risk_points else 0
         max_adverse_r = excursion["mae"] / risk_points if risk_points else 0
@@ -129,10 +153,10 @@ class SimulationEngine:
             timeframe=order.timeframe,
             side=order.side,
             setup_name=order.setup_name,
-            entry=order.entry,
+            entry=entry_price,
             stop=order.stop,
             target=order.target,
-            exit=exit_price,
+            exit=actual_exit,
             quantity=order.quantity,
             risk_points=risk_points,
             mfe_points=excursion["mfe"],
@@ -188,14 +212,33 @@ class SimulationEngine:
 
     def _update_excursion(self, order: SimulatedOrder, candle: Candle) -> None:
         excursion = self._position_excursions[order.id]
+        entry_price = order.filled_entry if order.filled_entry is not None else order.entry
         if order.side == OrderSide.BUY:
-            favorable = candle.high - order.entry
-            adverse = candle.low - order.entry
+            favorable = candle.high - entry_price
+            adverse = candle.low - entry_price
         else:
-            favorable = order.entry - candle.low
-            adverse = order.entry - candle.high
+            favorable = entry_price - candle.low
+            adverse = entry_price - candle.high
         excursion["mfe"] = max(excursion["mfe"], favorable, 0)
         excursion["mae"] = min(excursion["mae"], adverse, 0)
+
+    def _entry_fill_price(self, order: SimulatedOrder) -> float:
+        adjustment = (
+            self.execution_settings.spread_points / 2
+            + self.execution_settings.slippage_points
+        )
+        if order.side == OrderSide.BUY:
+            return round(order.entry + adjustment, 10)
+        return round(order.entry - adjustment, 10)
+
+    def _exit_fill_price(self, order: SimulatedOrder, exit_price: float) -> float:
+        adjustment = (
+            self.execution_settings.spread_points / 2
+            + self.execution_settings.slippage_points
+        )
+        if order.side == OrderSide.BUY:
+            return round(exit_price - adjustment, 10)
+        return round(exit_price + adjustment, 10)
 
     def _max_drawdown(self) -> float:
         peak = self.starting_equity

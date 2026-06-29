@@ -1,6 +1,7 @@
 from paquant.data_layer.sample_data import load_sample_candles
 from paquant.simulation_engine.engine import SimulationEngine
 from paquant.simulation_engine.orders import (
+    ExecutionSettings,
     OrderSide,
     OrderStatus,
     OrderType,
@@ -104,6 +105,67 @@ def test_buy_stop_order_fills_only_after_candle_crosses_entry():
 
     engine.on_candle(candles[14])
     assert order.status == OrderStatus.FILLED
+
+
+def test_buy_stop_limit_triggers_before_limit_fill():
+    candles = load_sample_candles()
+    engine = SimulationEngine(starting_equity=10_000)
+    order = SimulatedOrder(
+        id="buy-stop-limit-breakout",
+        symbol="XAUUSD",
+        timeframe="5m",
+        side=OrderSide.BUY,
+        order_type=OrderType.STOP_LIMIT,
+        activation_price=2320,
+        entry=2319.5,
+        stop=2314.5,
+        target=2329.5,
+        quantity=1,
+        setup_name="breakout stop limit",
+    )
+
+    engine.submit_order(order)
+    for candle in candles[:14]:
+        engine.on_candle(candle)
+    assert order.status == OrderStatus.SUBMITTED
+
+    engine.on_candle(candles[14])
+    assert order.status == OrderStatus.TRIGGERED
+
+    engine.on_candle(candles[15])
+    assert order.status == OrderStatus.FILLED
+    assert order.filled_entry == 2319.5
+
+
+def test_execution_costs_apply_spread_and_slippage_to_trade_prices():
+    candles = load_sample_candles()
+    engine = SimulationEngine(
+        starting_equity=10_000,
+        execution_settings=ExecutionSettings(spread_points=0.4, slippage_points=0.1),
+    )
+    order = SimulatedOrder(
+        id="market-buy-costed",
+        symbol="XAUUSD",
+        timeframe="5m",
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        entry=2310,
+        stop=2305,
+        target=2320,
+        quantity=1,
+        setup_name="costed pullback",
+    )
+
+    engine.submit_order(order)
+    for candle in candles:
+        engine.on_candle(candle)
+
+    trade = engine.trades[0]
+    assert order.filled_entry == 2310.3
+    assert trade.entry == 2310.3
+    assert trade.exit == 2319.7
+    assert trade.pnl == 9.4
+    assert round(trade.r_multiple, 4) == round(9.4 / 5.3, 4)
 
 
 def test_closed_trade_records_mfe_mae_and_r_excursion():

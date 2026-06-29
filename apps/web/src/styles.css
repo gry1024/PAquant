@@ -656,7 +656,7 @@ h2 {
 
 .table-row {
   display: grid;
-  grid-template-columns: 0.7fr repeat(4, 1fr);
+  grid-template-columns: 0.58fr 0.9fr repeat(5, minmax(0, 1fr));
   gap: 6px;
   padding: 7px 8px;
   border-bottom: 1px solid var(--line-soft);

@@ -119,13 +119,15 @@ export interface SimulatedOrder {
   symbol: string;
   timeframe: string;
   side: "buy" | "sell";
-  order_type: "limit" | "market";
+  order_type: "limit" | "market" | "stop" | "stop_limit";
+  activation_price?: number | null;
   entry: number;
+  filled_entry?: number | null;
   stop: number;
   target: number;
   quantity: number;
   setup_name: string;
-  status: string;
+  status: "submitted" | "triggered" | "filled" | "canceled" | "closed" | string;
 }
 
 export interface SimulatedTrade {

@@ -44,6 +44,8 @@ test("renders the PAquant trading workstation with fixture fallback", async () =
   expect(screen.getByText("Case cards")).toBeInTheDocument();
   expect(screen.getByText("Reasoning playbooks")).toBeInTheDocument();
   expect(screen.getByText("Source mapping")).toBeInTheDocument();
+  expect(screen.getByText("Fill")).toBeInTheDocument();
+  expect(screen.getByText("LIMIT")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: /Wedge\/Reversal Specialist/i }));
 

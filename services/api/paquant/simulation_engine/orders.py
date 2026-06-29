@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OrderSide(StrEnum):
@@ -19,6 +19,7 @@ class OrderType(StrEnum):
 
 class OrderStatus(StrEnum):
     SUBMITTED = "submitted"
+    TRIGGERED = "triggered"
     FILLED = "filled"
     CANCELED = "canceled"
     CLOSED = "closed"
@@ -31,6 +32,13 @@ class RiskSettings(BaseModel):
     max_quantity: float | None = None
 
 
+class ExecutionSettings(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    spread_points: float = Field(default=0.0, ge=0)
+    slippage_points: float = Field(default=0.0, ge=0)
+
+
 class SimulatedOrder(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
@@ -39,12 +47,20 @@ class SimulatedOrder(BaseModel):
     timeframe: str
     side: OrderSide
     order_type: OrderType
+    activation_price: float | None = None
     entry: float
     stop: float
     target: float
     quantity: float = Field(gt=0)
     setup_name: str
     status: OrderStatus = OrderStatus.SUBMITTED
+    filled_entry: float | None = None
+
+    @model_validator(mode="after")
+    def validate_stop_limit_trigger(self) -> SimulatedOrder:
+        if self.order_type == OrderType.STOP_LIMIT and self.activation_price is None:
+            raise ValueError("stop-limit orders require activation_price")
+        return self
 
     @classmethod
     def limit_buy(

@@ -16,7 +16,9 @@ export function OrdersPanel({ orders, trades }: OrdersPanelProps) {
       <div className="table-like">
         <div className="table-row table-head">
           <span>Side</span>
+          <span>Type</span>
           <span>Entry</span>
+          <span>Fill</span>
           <span>Stop</span>
           <span>Target</span>
           <span>Status</span>
@@ -24,7 +26,9 @@ export function OrdersPanel({ orders, trades }: OrdersPanelProps) {
         {orders.map((order) => (
           <div className="table-row" key={order.id}>
             <span>{order.side.toUpperCase()}</span>
+            <span>{order.order_type.replace("_", "-").toUpperCase()}</span>
             <span>{order.entry.toFixed(2)}</span>
+            <span>{order.filled_entry == null ? "-" : order.filled_entry.toFixed(2)}</span>
             <span>{order.stop.toFixed(2)}</span>
             <span>{order.target.toFixed(2)}</span>
             <span>{order.status}</span>
