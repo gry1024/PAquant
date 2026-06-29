@@ -2,12 +2,39 @@ import { Brain, CheckCircle2, CircleDollarSign, ShieldAlert, Wrench } from "luci
 import type { AgentAction, Analysis } from "../lib/workbenchTypes";
 
 interface TraderPanelProps {
-  analysis: Analysis;
+  analysis: Analysis | null;
   actions: AgentAction[];
   traderName: string;
+  modelLabel: string;
+  tradeReason?: string;
 }
 
-export function TraderPanel({ analysis, actions, traderName }: TraderPanelProps) {
+export function TraderPanel({
+  analysis,
+  actions,
+  traderName,
+  modelLabel,
+  tradeReason
+}: TraderPanelProps) {
+  if (!analysis) {
+    return (
+      <aside className="trader-panel" aria-label="AI trader analysis">
+        <div className="panel-heading">
+          <Brain size={16} />
+          AI trader idle
+        </div>
+        <section className="analysis-section">
+          <h2>{traderName}</h2>
+          <p>
+            Model API: {modelLabel}. Start the AI trader to let the model observe
+            XAU 5m, call drawing tools, create a simulated order, and write the
+            audit trail.
+          </p>
+        </section>
+      </aside>
+    );
+  }
+
   return (
     <aside className="trader-panel" aria-label="AI trader analysis">
       <div className="panel-heading">
@@ -24,6 +51,10 @@ export function TraderPanel({ analysis, actions, traderName }: TraderPanelProps)
           <strong>{Math.round(analysis.confidence * 100)}%</strong>
         </div>
       </div>
+      <section className="analysis-section">
+        <h2>Model API</h2>
+        <p>Model API: {analysis.modelUsage.provider} / {analysis.modelUsage.model}</p>
+      </section>
       <section className="analysis-section">
         <h2>Market context</h2>
         <p>{analysis.marketContext}</p>
@@ -44,7 +75,13 @@ export function TraderPanel({ analysis, actions, traderName }: TraderPanelProps)
             <CheckCircle2 size={14} />
             Target {analysis.target}
           </span>
+          <span>Position size {analysis.positionSizeSuggestion}</span>
         </div>
+        {tradeReason ? (
+          <p className="trade-reason">
+            <strong>Trade reason</strong> {tradeReason}
+          </p>
+        ) : null}
       </section>
       <section className="analysis-section">
         <h2>Key levels</h2>

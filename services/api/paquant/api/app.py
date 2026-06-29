@@ -7,11 +7,21 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from paquant.agent_runtime.registry import list_trader_profiles
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema
 from paquant.export_fixture import build_demo_fixture, build_knowledge_browser_payload
+from paquant.model_provider.base import ModelProvider
+from paquant.model_provider.mock import MockModelProvider
+from paquant.model_provider.openai_compatible import OpenAICompatibleProvider
+from paquant.model_provider.registry import build_default_provider_registry
+
+
+class AgentRunRequest(BaseModel):
+    trader_id: str = Field(default="brooks-generalist", alias="traderId")
+    model_provider: str = Field(default="mock", alias="modelProvider")
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
@@ -52,6 +62,24 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def get_knowledge() -> dict[str, Any]:
         return build_knowledge_browser_payload()
 
+    @app.get("/api/model-providers")
+    def get_model_providers() -> dict[str, Any]:
+        return {"providers": _model_provider_payloads()}
+
+    @app.post("/api/agent-runs", status_code=201)
+    def create_agent_run(request: AgentRunRequest) -> dict[str, Any]:
+        provider = _build_model_provider(request.model_provider)
+        payload = build_demo_fixture(model_provider=provider)
+        run_id = _persist_workbench_payload(repository, payload)
+        return _with_meta(
+            payload,
+            persisted=True,
+            analysis_run_id=run_id,
+            repository=repository,
+            started_by="user",
+            agent_status="completed",
+        )
+
     @app.post("/api/workbench/demo/runs", status_code=201)
     def create_demo_run() -> dict[str, Any]:
         payload = build_demo_fixture()
@@ -59,6 +87,49 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         return _with_meta(payload, persisted=True, analysis_run_id=run_id, repository=repository)
 
     return app
+
+
+def _model_provider_payloads() -> list[dict[str, Any]]:
+    providers = [
+        {
+            "id": "mock",
+            "name": "Mock local",
+            "model": MockModelProvider.model,
+            "apiKeyEnv": None,
+            "available": True,
+            "capabilities": {
+                "text": True,
+                "vision": False,
+                "structured_output": True,
+                "tool_calling": True,
+                "context_window": 16_000,
+            },
+        }
+    ]
+    for provider_id, config in build_default_provider_registry().items():
+        providers.append(
+            {
+                "id": provider_id,
+                "name": provider_id.title(),
+                "model": config.model,
+                "apiKeyEnv": config.api_key_env,
+                "available": bool(os.environ.get(config.api_key_env)),
+                "capabilities": config.capabilities.model_dump(mode="json"),
+            }
+        )
+    return providers
+
+
+def _build_model_provider(provider_id: str) -> ModelProvider:
+    if provider_id == "mock":
+        return MockModelProvider()
+    registry = build_default_provider_registry()
+    config = registry.get(provider_id)
+    if config is None:
+        return MockModelProvider()
+    if not os.environ.get(config.api_key_env):
+        return MockModelProvider()
+    return OpenAICompatibleProvider(config=config)
 
 
 def _resolve_database_path(database_path: str | Path | None) -> str:
@@ -109,6 +180,8 @@ def _with_meta(
     persisted: bool,
     analysis_run_id: int | None = None,
     repository: AuditRepository | None = None,
+    started_by: str | None = None,
+    agent_status: str | None = None,
 ) -> dict[str, Any]:
     analysis = payload["analysis"]
     enriched = dict(payload)
@@ -133,6 +206,13 @@ def _with_meta(
             "trade_snapshots": repository.count_rows("trade_snapshots"),
             "journals": repository.count_rows("journals"),
         }
+    usage = analysis["modelUsage"]
+    meta["modelProvider"] = usage["provider"]
+    meta["model"] = usage["model"]
+    if started_by is not None:
+        meta["startedBy"] = started_by
+    if agent_status is not None:
+        meta["agentStatus"] = agent_status
     enriched["meta"] = meta
     return enriched
 

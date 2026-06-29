@@ -9,6 +9,7 @@ from paquant.model_provider.base import (
     ModelProviderError,
     ModelRequest,
     ModelResponse,
+    ModelToolCall,
     ModelUsage,
     ProviderConfig,
 )
@@ -72,6 +73,9 @@ class OpenAICompatibleProvider:
             ],
             "temperature": 0.2,
         }
+        if request.tools:
+            payload["tools"] = request.tools
+            payload["tool_choice"] = "auto"
         headers = {
             "Authorization": f"Bearer {credential}",
             "Content-Type": "application/json",
@@ -94,6 +98,7 @@ class OpenAICompatibleProvider:
         return ModelResponse(
             text=text,
             structured=_parse_structured(text),
+            tool_calls=_extract_tool_calls(raw),
             usage=ModelUsage(
                 provider=self.config.provider,
                 model=self.config.model,
@@ -130,9 +135,39 @@ def _extract_text(raw: dict) -> str:
         raise ModelProviderError("model response missing choices")
     message = choices[0].get("message") or {}
     content = message.get("content")
+    if content is None and message.get("tool_calls"):
+        return ""
     if not isinstance(content, str):
         raise ModelProviderError("model response missing text content")
     return content
+
+
+def _extract_tool_calls(raw: dict) -> list[ModelToolCall]:
+    choices = raw.get("choices") or []
+    if not choices:
+        return []
+    message = choices[0].get("message") or {}
+    tool_calls = message.get("tool_calls") or []
+    parsed: list[ModelToolCall] = []
+    for index, call in enumerate(tool_calls, start=1):
+        function = call.get("function") or {}
+        raw_arguments = function.get("arguments") or "{}"
+        try:
+            arguments = json.loads(raw_arguments)
+        except json.JSONDecodeError:
+            arguments = {}
+        if not isinstance(arguments, dict):
+            arguments = {}
+        name = function.get("name")
+        if isinstance(name, str):
+            parsed.append(
+                ModelToolCall(
+                    id=str(call.get("id") or f"tool-call-{index}"),
+                    name=name,
+                    arguments=arguments,
+                )
+            )
+    return parsed
 
 
 def _parse_structured(text: str) -> dict:

@@ -5,13 +5,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from paquant.data_layer.schemas import Candle
+from paquant.drawing_engine.schemas import ChartObject
 from paquant.drawing_engine.tools import AgentAction, ToolCommand, execute_drawing_plan
 from paquant.knowledge_layer.compiler import KnowledgeArtifact
 from paquant.knowledge_layer.retrieval import (
     KnowledgeReference,
     retrieve_relevant_knowledge,
 )
-from paquant.model_provider.base import ModelRequest, ModelUsage
+from paquant.model_provider.base import ModelProvider, ModelRequest, ModelToolCall, ModelUsage
 from paquant.model_provider.mock import MockModelProvider
 
 
@@ -56,6 +57,7 @@ class TraderDecision(BaseModel):
     knowledge_refs: list[KnowledgeReference]
     evidence_trail: list[str]
     action_stream: list[AgentAction]
+    chart_objects: list[ChartObject]
     proposed_order: ProposedOrder | None
     model_usage: ModelUsage
 
@@ -63,7 +65,7 @@ class TraderDecision(BaseModel):
 class BrooksGeneralistTrader:
     trader_id = "brooks-generalist"
 
-    def __init__(self, provider: MockModelProvider | None = None) -> None:
+    def __init__(self, provider: ModelProvider | None = None) -> None:
         self.provider = provider or MockModelProvider()
 
     def analyze(
@@ -80,7 +82,7 @@ class BrooksGeneralistTrader:
         last = candles[-1]
         high = max(candle.high for candle in candles)
         low = min(candle.low for candle in candles)
-        drawing_result = execute_drawing_plan(candles, build_brooks_generalist_drawing_commands())
+        default_tool_commands = build_brooks_generalist_drawing_commands()
         knowledge_refs = retrieve_relevant_knowledge(
             knowledge,
             query=(
@@ -100,9 +102,19 @@ class BrooksGeneralistTrader:
                     f"with Brooks refs {[reference.key for reference in knowledge_refs]}."
                 ),
                 schema_name="TraderDecision",
-                metadata={"chart_objects": len(chart_objects)},
+                tools=build_brooks_tool_definitions(),
+                metadata={
+                    "chart_objects": len(chart_objects),
+                    "tool_commands": [
+                        command.model_dump(mode="json") for command in default_tool_commands
+                    ],
+                },
             )
         )
+        tool_commands = _tool_calls_to_commands(response.tool_calls)
+        if not tool_commands:
+            tool_commands = default_tool_commands
+        drawing_result = execute_drawing_plan(candles, tool_commands)
 
         if bias == "neutral":
             proposed_order = None
@@ -189,6 +201,7 @@ class BrooksGeneralistTrader:
             evidence_trail=[
                 "Context checked before setup label.",
                 "Always-in bias derived from replay swing direction.",
+                "Model API returned tool calls that were executed by drawing tools.",
                 (
                     "Retrieved Brooks refs: "
                     f"{', '.join(reference.key for reference in knowledge_refs)}."
@@ -196,9 +209,171 @@ class BrooksGeneralistTrader:
                 "Trader's equation uses 5 points risk for 10 points reward.",
             ],
             action_stream=drawing_result.actions,
+            chart_objects=drawing_result.chart_objects,
             proposed_order=proposed_order,
             model_usage=response.usage,
         )
+
+
+def _tool_calls_to_commands(tool_calls: list[ModelToolCall]) -> list[ToolCommand]:
+    commands: list[ToolCommand] = []
+    for call in tool_calls:
+        commands.append(ToolCommand(tool=call.name, arguments=call.arguments))
+    return commands
+
+
+def build_brooks_tool_definitions() -> list[dict]:
+    return [
+        _tool_schema(
+            name="find_swings",
+            description="Find local swing highs and lows in the visible candle window.",
+            properties={
+                "left_strength": {"type": "integer"},
+                "right_strength": {"type": "integer"},
+                "limit": {"type": "integer"},
+            },
+        ),
+        _tool_schema(
+            name="snap_to_swing",
+            description="Snap a probe point to the nearest swing high or low.",
+            properties={
+                "time_index": {"type": "integer"},
+                "price": {"type": "number"},
+                "side": {"type": "string", "enum": ["high", "low"]},
+            },
+            required=["time_index", "price"],
+        ),
+        _tool_schema(
+            name="draw_trendline",
+            description="Create a trend line chart object from two anchored prices.",
+            properties=_anchored_line_properties(
+                extra={"id": {"type": "string"}, "label": {"type": "string"}}
+            ),
+            required=["id", "label", "start", "end"],
+        ),
+        _tool_schema(
+            name="draw_channel",
+            description="Create a parallel channel from an existing trend line.",
+            properties={
+                "id": {"type": "string"},
+                "label": {"type": "string"},
+                "base_id": {"type": "string"},
+                "parallel_anchor": _anchor_schema(),
+            },
+            required=["id", "label", "base_id", "parallel_anchor"],
+        ),
+        _tool_schema(
+            name="draw_box",
+            description="Create a price range box over a candle index interval.",
+            properties={
+                "id": {"type": "string"},
+                "label": {"type": "string"},
+                "start_index": {"type": "integer"},
+                "end_index": {"type": "integer"},
+                "high": {"type": "number"},
+                "low": {"type": "number"},
+            },
+            required=["id", "label", "start_index", "end_index", "high", "low"],
+        ),
+        _tool_schema(
+            name="draw_fibonacci",
+            description="Create a Fibonacci retracement map from a swing leg.",
+            properties=_anchored_line_properties(
+                extra={"id": {"type": "string"}, "label": {"type": "string"}}
+            ),
+            required=["id", "label", "start", "end"],
+        ),
+        _tool_schema(
+            name="measure_leg",
+            description="Measure points and bar count between two anchors.",
+            properties=_anchored_line_properties(),
+            required=["start", "end"],
+        ),
+        _tool_schema(
+            name="compare_legs",
+            description="Compare two measured legs by points and bars.",
+            properties={
+                "first": {
+                    "type": "object",
+                    "properties": _anchored_line_properties(),
+                    "required": ["start", "end"],
+                },
+                "second": {
+                    "type": "object",
+                    "properties": _anchored_line_properties(),
+                    "required": ["start", "end"],
+                },
+            },
+            required=["first", "second"],
+        ),
+        _tool_schema(
+            name="count_bars",
+            description="Count bars between two candle indexes.",
+            properties={
+                "start_index": {"type": "integer"},
+                "end_index": {"type": "integer"},
+            },
+            required=["start_index", "end_index"],
+        ),
+        _tool_schema(
+            name="project_line",
+            description="Project the price of a line at a future candle index.",
+            properties={
+                **_anchored_line_properties(),
+                "time_index": {"type": "integer"},
+            },
+            required=["start", "end", "time_index"],
+        ),
+        _tool_schema(
+            name="measure_deviation",
+            description="Measure how far a point sits from a projected line.",
+            properties={
+                **_anchored_line_properties(),
+                "point": _anchor_schema(),
+            },
+            required=["start", "end", "point"],
+        ),
+    ]
+
+
+def _tool_schema(
+    *,
+    name: str,
+    description: str,
+    properties: dict,
+    required: list[str] | None = None,
+) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required or [],
+            },
+        },
+    }
+
+
+def _anchor_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "time_index": {"type": "integer"},
+            "price": {"type": "number"},
+        },
+        "required": ["time_index", "price"],
+    }
+
+
+def _anchored_line_properties(*, extra: dict | None = None) -> dict:
+    return {
+        **(extra or {}),
+        "start": _anchor_schema(),
+        "end": _anchor_schema(),
+    }
 
 
 def build_brooks_generalist_drawing_commands() -> list[ToolCommand]:

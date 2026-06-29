@@ -21,6 +21,7 @@ export function OrdersPanel({ orders, trades }: OrdersPanelProps) {
           <span>Fill</span>
           <span>Stop</span>
           <span>Target</span>
+          <span>Qty</span>
           <span>Status</span>
         </div>
         {orders.map((order) => (
@@ -31,7 +32,9 @@ export function OrdersPanel({ orders, trades }: OrdersPanelProps) {
             <span>{order.filled_entry == null ? "-" : order.filled_entry.toFixed(2)}</span>
             <span>{order.stop.toFixed(2)}</span>
             <span>{order.target.toFixed(2)}</span>
+            <span>{order.quantity}</span>
             <span>{order.status}</span>
+            <span className="order-reason">{order.reason}</span>
           </div>
         ))}
       </div>

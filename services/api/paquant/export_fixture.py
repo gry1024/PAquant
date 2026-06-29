@@ -7,7 +7,6 @@ from typing import Any
 
 from paquant.agent_runtime.brooks_generalist import (
     BrooksGeneralistTrader,
-    build_brooks_generalist_drawing_commands,
 )
 from paquant.data_layer.sample_data import load_sample_candles
 from paquant.data_layer.timeframes import build_higher_timeframe_context
@@ -18,8 +17,9 @@ from paquant.drawing_engine.schemas import (
     TradeMarker,
     serialize_chart_object,
 )
-from paquant.drawing_engine.tools import AgentAction, execute_drawing_plan
+from paquant.drawing_engine.tools import AgentAction
 from paquant.knowledge_layer.compiler import compile_core_knowledge
+from paquant.model_provider.base import ModelProvider
 from paquant.simulation_engine.engine import SimulationEngine
 from paquant.simulation_engine.orders import SimulatedOrder
 
@@ -37,6 +37,8 @@ def _analysis_payload(decision) -> dict[str, Any]:
         "entryType": decision.entry_type,
         "stop": decision.stop,
         "target": decision.target,
+        "positionSizeSuggestion": decision.position_size_suggestion,
+        "noTradeReason": decision.no_trade_reason,
         "confidence": decision.confidence,
         "reasoningSummary": decision.reasoning_summary,
         "knowledgeRefs": [
@@ -249,12 +251,21 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
     }
 
 
-def build_demo_fixture() -> dict[str, Any]:
+def build_demo_fixture(model_provider: ModelProvider | None = None) -> dict[str, Any]:
     candles = load_sample_candles()
     knowledge = compile_core_knowledge()
-    drawing_result = execute_drawing_plan(candles, build_brooks_generalist_drawing_commands())
+    decision = BrooksGeneralistTrader(provider=model_provider).analyze(
+        candles=candles, knowledge=knowledge, chart_objects=[]
+    )
+    if decision.proposed_order is None:
+        raise ValueError("demo fixture expects a tradable Brooks setup")
+    proposed_order = decision.proposed_order
+    trade_reason = (
+        "Pullback held above the always-in trend line; trader's equation offered "
+        "5 points risk for a 10 point target."
+    )
     chart_objects = [
-        *drawing_result.chart_objects,
+        *decision.chart_objects,
         MeasuredMove(
             id="mm-target",
             label="Measured move target",
@@ -273,23 +284,42 @@ def build_demo_fixture() -> dict[str, Any]:
             ],
         ),
         TradeMarker(
-            id="entry-marker", label="Sim entry", time_index=0, price=2310, marker_type="entry"
+            id="entry-marker",
+            label="Entry 2310.00 | Size 1",
+            time_index=12,
+            price=proposed_order.entry,
+            marker_type="entry",
+            quantity=proposed_order.quantity,
+            reason=trade_reason,
         ),
         TradeMarker(
-            id="target-marker", label="2R target", time_index=17, price=2320, marker_type="target"
+            id="stop-marker",
+            label="Stop 2305.00 | Size 1",
+            time_index=12,
+            price=proposed_order.stop,
+            marker_type="stop",
+            quantity=proposed_order.quantity,
+            reason="Stop is below the pullback invalidation swing.",
+        ),
+        TradeMarker(
+            id="target-marker",
+            label="Target 2320.00 | Size 1",
+            time_index=17,
+            price=proposed_order.target,
+            marker_type="target",
+            quantity=proposed_order.quantity,
+            reason="Target marks the 2R measured reward from the pullback entry.",
         ),
     ]
-    decision = BrooksGeneralistTrader().analyze(
-        candles=candles, knowledge=knowledge, chart_objects=chart_objects
-    )
     order = SimulatedOrder.limit_buy(
         symbol="XAUUSD",
         timeframe="5m",
-        entry=2310,
-        stop=2305,
-        target=2320,
-        quantity=1,
-        setup_name="Brooks pullback in always-in long context",
+        entry=proposed_order.entry,
+        stop=proposed_order.stop,
+        target=proposed_order.target,
+        quantity=proposed_order.quantity,
+        setup_name=proposed_order.setup_name,
+        reason=trade_reason,
     )
     engine = SimulationEngine(starting_equity=10_000)
     engine.submit_order(order)

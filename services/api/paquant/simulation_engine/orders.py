@@ -53,6 +53,7 @@ class SimulatedOrder(BaseModel):
     target: float
     quantity: float = Field(gt=0)
     setup_name: str
+    reason: str = ""
     status: OrderStatus = OrderStatus.SUBMITTED
     filled_entry: float | None = None
 
@@ -73,6 +74,7 @@ class SimulatedOrder(BaseModel):
         target: float,
         quantity: float,
         setup_name: str,
+        reason: str = "",
     ) -> SimulatedOrder:
         return cls(
             id=f"sim-{symbol}-{timeframe}-{setup_name}",
@@ -85,6 +87,7 @@ class SimulatedOrder(BaseModel):
             target=target,
             quantity=quantity,
             setup_name=setup_name,
+            reason=reason,
         )
 
 

@@ -1,14 +1,17 @@
 import {
   Activity,
+  Bot,
   Box,
   Crosshair,
   GitCompareArrows,
   Layers3,
   MousePointer2,
+  Play,
   Ruler,
+  Square,
   TrendingUp
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChartPanel } from "./ChartPanel";
 import { JournalPanel } from "./JournalPanel";
 import { KnowledgeBrowserPanel } from "./KnowledgeBrowserPanel";
@@ -17,7 +20,7 @@ import { PerformanceStrip } from "./PerformanceStrip";
 import { TradeReplayPanel } from "./TradeReplayPanel";
 import { TraderPanel } from "./TraderPanel";
 import { TraderRosterPanel } from "./TraderRosterPanel";
-import type { TraderProfile, WorkbenchFixture } from "../lib/workbenchTypes";
+import type { ModelProviderChoice, TraderProfile, WorkbenchFixture } from "../lib/workbenchTypes";
 
 const tools = [
   { label: "Pointer", icon: MousePointer2 },
@@ -32,25 +35,81 @@ const tools = [
 interface WorkbenchProps {
   fixture: WorkbenchFixture;
   traderProfiles: TraderProfile[];
+  modelProviders: ModelProviderChoice[];
+  onStartAgentRun: (traderId: string, modelProvider: string) => Promise<WorkbenchFixture>;
   sourceLabel?: string;
 }
 
-export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchProps) {
+export function Workbench({
+  fixture,
+  traderProfiles,
+  modelProviders,
+  onStartAgentRun,
+  sourceLabel
+}: WorkbenchProps) {
   const [activeTraderId, setActiveTraderId] = useState(fixture.analysis.traderId);
-  const [visibleCandleCount, setVisibleCandleCount] = useState(fixture.candles.length);
+  const [selectedProviderId, setSelectedProviderId] = useState(modelProviders[0]?.id ?? "mock");
+  const [agentFixture, setAgentFixture] = useState<WorkbenchFixture | null>(null);
+  const [runStatus, setRunStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [visibleCandleCount, setVisibleCandleCount] = useState(
+    Math.min(24, fixture.candles.length)
+  );
   const activeTrader = useMemo(
     () => traderProfiles.find((profile) => profile.id === activeTraderId) ?? traderProfiles[0],
     [activeTraderId, traderProfiles]
   );
+  const selectedProvider = useMemo(
+    () => modelProviders.find((provider) => provider.id === selectedProviderId) ?? modelProviders[0],
+    [modelProviders, selectedProviderId]
+  );
+  const visibleFixture = agentFixture ?? idleWorkbenchFixture(fixture);
   const totalCandleCount = fixture.candles.length;
   const boundedVisibleCandleCount = Math.min(
     Math.max(visibleCandleCount, 1),
     totalCandleCount
   );
-  const firstReplayCount = (fixture.tradeReplay[0]?.barIndex ?? 0) + 1;
+  const firstReplayCount = ((agentFixture ?? fixture).tradeReplay[0]?.barIndex ?? 8) + 1;
   const latest = fixture.candles[boundedVisibleCandleCount - 1] ?? fixture.candles.at(-1);
-  const trade = fixture.trades.at(0);
+  const trade = visibleFixture.trades.at(0);
   const activeTraderName = activeTrader?.name ?? "Brooks Generalist";
+  const modelLabel = selectedProvider
+    ? `${selectedProvider.name} / ${selectedProvider.model}`
+    : "Mock local / mock-brooks";
+
+  useEffect(() => {
+    if (!isStreaming) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setVisibleCandleCount((count) => {
+        const next = Math.min(totalCandleCount, count + 1);
+        if (next >= totalCandleCount) {
+          window.clearInterval(timer);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isStreaming, totalCandleCount]);
+
+  async function handleStartAgentRun() {
+    setRunStatus("running");
+    try {
+      const run = await onStartAgentRun(activeTraderId, selectedProviderId);
+      setAgentFixture(run);
+      setRunStatus("completed");
+    } catch {
+      setRunStatus("failed");
+    }
+  }
+
+  function handleToggleStream() {
+    if (!isStreaming) {
+      setVisibleCandleCount((count) => Math.min(totalCandleCount, count + 1));
+    }
+    setIsStreaming((current) => !current);
+  }
 
   return (
     <main className="workbench-shell">
@@ -81,7 +140,9 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
               <Activity size={15} /> {activeTraderName}
             </span>
             {sourceLabel ? <span className="source-pill">{sourceLabel}</span> : null}
-            <span>Last {latest?.close.toFixed(2)}</span>
+            <span>
+              <strong>Last</strong> {latest?.close.toFixed(2)}
+            </span>
             <span>{fixture.candles.length} bars</span>
             {fixture.higherTimeframeContext.map((context) => (
               <span className="timeframe-chip" title={context.summary} key={context.timeframe}>
@@ -91,6 +152,38 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
           </div>
         </header>
 
+        <section className="agent-control-strip" aria-label="AI trader controls">
+          <label className="model-select">
+            <span>Model API</span>
+            <select
+              aria-label="Model API"
+              value={selectedProviderId}
+              onChange={(event) => setSelectedProviderId(event.target.value)}
+              disabled={runStatus === "running"}
+            >
+              {modelProviders.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name} / {provider.model}
+                  {provider.available ? "" : " (no key)"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="agent-run-button"
+            onClick={handleStartAgentRun}
+            disabled={runStatus === "running"}
+          >
+            <Bot size={15} />
+            {runStatus === "running" ? "Running AI trader" : "Start AI trader"}
+          </button>
+          <span className={`agent-run-state ${runStatus}`}>
+            {runStatus === "idle" ? "idle" : runStatus}
+          </span>
+          <span className="model-api-readout">{modelLabel}</span>
+        </section>
+
         <TraderRosterPanel
           profiles={traderProfiles}
           activeTraderId={activeTraderId}
@@ -99,8 +192,10 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
 
         <div className="main-grid">
           <ChartPanel
-            fixture={fixture}
+            fixture={visibleFixture}
             visibleCandleCount={boundedVisibleCandleCount}
+            isStreaming={isStreaming}
+            onToggleStream={handleToggleStream}
             onResetReplay={() => setVisibleCandleCount(firstReplayCount)}
             onStepBack={() => setVisibleCandleCount((count) => Math.max(1, count - 1))}
             onStepForward={() =>
@@ -109,21 +204,45 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
             onShowAll={() => setVisibleCandleCount(totalCandleCount)}
           />
           <TraderPanel
-            analysis={fixture.analysis}
-            actions={fixture.agentActions}
+            analysis={agentFixture?.analysis ?? null}
+            actions={agentFixture?.agentActions ?? []}
             traderName={activeTraderName}
+            modelLabel={
+              agentFixture
+                ? `${agentFixture.analysis.modelUsage.provider} / ${agentFixture.analysis.modelUsage.model}`
+                : modelLabel
+            }
+            tradeReason={agentFixture?.orders[0]?.reason}
           />
         </div>
 
         <section className="bottom-grid" aria-label="Simulation and replay audit">
-          <OrdersPanel orders={fixture.orders} trades={fixture.trades} />
-          <JournalPanel entries={fixture.journal} />
-          <TradeReplayPanel steps={fixture.tradeReplay} snapshots={fixture.tradeSnapshots} />
-          <PerformanceStrip
-            equityCurve={fixture.equityCurve}
-            summary={fixture.performanceSummary}
-            trade={trade}
-          />
+          {agentFixture ? (
+            <>
+              <OrdersPanel orders={agentFixture.orders} trades={agentFixture.trades} />
+              <JournalPanel entries={agentFixture.journal} />
+              <TradeReplayPanel
+                steps={agentFixture.tradeReplay}
+                snapshots={agentFixture.tradeSnapshots}
+              />
+              <PerformanceStrip
+                equityCurve={agentFixture.equityCurve}
+                summary={agentFixture.performanceSummary}
+                trade={trade}
+              />
+            </>
+          ) : (
+            <section className="data-panel idle-panel">
+              <div className="panel-heading">
+                {isStreaming ? <Square size={16} /> : <Play size={16} />}
+                Awaiting AI start
+              </div>
+              <p>
+                Market data is visible. Start the AI trader to run model reasoning,
+                execute tool calls, draw on the chart, and submit replay orders.
+              </p>
+            </section>
+          )}
           <KnowledgeBrowserPanel knowledge={fixture.knowledge} />
         </section>
       </section>
@@ -133,4 +252,18 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
 
 function formatTimeframe(timeframe: "15m" | "1h") {
   return timeframe === "15m" ? "M15" : "H1";
+}
+
+function idleWorkbenchFixture(fixture: WorkbenchFixture): WorkbenchFixture {
+  return {
+    ...fixture,
+    agentActions: [],
+    chartObjects: [],
+    orders: [],
+    trades: [],
+    tradeSnapshots: [],
+    tradeReplay: [],
+    equityCurve: [],
+    journal: []
+  };
 }

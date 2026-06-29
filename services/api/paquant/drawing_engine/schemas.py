@@ -84,6 +84,8 @@ class TradeMarker(BaseModel):
     time_index: int
     price: float
     marker_type: Literal["entry", "stop", "target", "fill"]
+    quantity: float | None = None
+    reason: str | None = None
 
 
 ChartObject: TypeAlias = Annotated[

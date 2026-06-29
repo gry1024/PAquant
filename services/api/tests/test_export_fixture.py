@@ -27,8 +27,22 @@ def test_demo_fixture_contains_workbench_payload():
     assert payload["analysis"]["traderId"] == "brooks-generalist"
     assert payload["analysis"]["knowledgeRefs"]
     assert payload["analysis"]["knowledgeRefs"][0]["sourceRefs"]
+    assert payload["analysis"]["positionSizeSuggestion"] == 1
     assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
     assert any(action["tool"] == "measure_deviation" for action in payload["agentActions"])
+    assert payload["orders"][0]["reason"]
+    trade_markers = [
+        chart_object
+        for chart_object in payload["chartObjects"]
+        if chart_object["kind"] == "trade_marker"
+    ]
+    assert {marker["marker_type"] for marker in trade_markers} >= {
+        "entry",
+        "stop",
+        "target",
+    }
+    assert all(marker["quantity"] == 1 for marker in trade_markers)
+    assert all(marker["reason"] for marker in trade_markers)
     assert [step["stage"] for step in payload["tradeReplay"]] == [
         "pre-entry",
         "plan",

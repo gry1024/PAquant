@@ -11,6 +11,7 @@ class ModelRequest(BaseModel):
     prompt: str
     schema_name: str
     schema_version: str = "v1"
+    tools: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -24,11 +25,20 @@ class ModelUsage(BaseModel):
     estimated_cost_usd: float
 
 
+class ModelToolCall(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
 class ModelResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str
     structured: dict[str, Any]
+    tool_calls: list[ModelToolCall] = Field(default_factory=list)
     usage: ModelUsage
 
 

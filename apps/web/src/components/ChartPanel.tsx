@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, SkipForward } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 import { CandlestickSeries, ColorType, createChart } from "lightweight-charts";
 import { DrawingOverlay } from "./DrawingOverlay";
 import { toChartCandles } from "../lib/chartTransforms";
@@ -8,6 +8,8 @@ import type { WorkbenchFixture } from "../lib/workbenchTypes";
 interface ChartPanelProps {
   fixture: WorkbenchFixture;
   visibleCandleCount: number;
+  isStreaming: boolean;
+  onToggleStream: () => void;
   onResetReplay: () => void;
   onStepBack: () => void;
   onStepForward: () => void;
@@ -17,6 +19,8 @@ interface ChartPanelProps {
 export function ChartPanel({
   fixture,
   visibleCandleCount,
+  isStreaming,
+  onToggleStream,
   onResetReplay,
   onStepBack,
   onStepForward,
@@ -88,11 +92,24 @@ export function ChartPanel({
           <h2>Replay session</h2>
         </div>
         <div className="chart-stats">
-          <span>Open {first.open.toFixed(2)}</span>
-          <span>Close {last.close.toFixed(2)}</span>
+          <span>
+            <strong>Open</strong> {first.open.toFixed(2)}
+          </span>
+          <span>
+            <strong>Last price</strong> {last.close.toFixed(2)}
+          </span>
           <span>{fixture.chartObjects.length} drawings</span>
         </div>
         <div className="replay-controls" aria-label="Replay controls">
+          <button
+            type="button"
+            className="replay-button stream-toggle"
+            aria-label={isStreaming ? "Pause data stream" : "Start data stream"}
+            title={isStreaming ? "Pause data stream" : "Start data stream"}
+            onClick={onToggleStream}
+          >
+            {isStreaming ? <Pause size={14} /> : <Play size={14} />}
+          </button>
           <button
             type="button"
             className="replay-button"

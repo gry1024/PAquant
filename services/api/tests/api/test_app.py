@@ -27,6 +27,8 @@ def test_demo_workbench_endpoint_returns_chart_contract(tmp_path: Path):
         "symbol": "XAUUSD",
         "timeframe": "5m",
         "traderId": "brooks-generalist",
+        "modelProvider": "mock",
+        "model": "mock-brooks",
     }
     assert len(payload["candles"]) >= 30
     assert payload["candles"][0]["symbol"] == "XAUUSD"
@@ -104,6 +106,54 @@ def test_demo_run_endpoint_persists_auditable_artifacts(tmp_path: Path):
         "trade_snapshots": len(payload["tradeSnapshots"]),
         "journals": len(payload["journal"]),
     }
+
+
+def test_model_providers_endpoint_exposes_current_api_choices(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+
+    response = client.get("/api/model-providers")
+
+    assert response.status_code == 200
+    payload = response.json()
+    provider_ids = {provider["id"] for provider in payload["providers"]}
+    assert {"mock", "deepseek", "qwen", "minimax", "kimi"} <= provider_ids
+    deepseek = next(provider for provider in payload["providers"] if provider["id"] == "deepseek")
+    assert deepseek["model"] == "deepseek-chat"
+    assert deepseek["apiKeyEnv"] == "DEEPSEEK_API_KEY"
+    assert deepseek["available"] is True
+    assert deepseek["capabilities"]["tool_calling"] is True
+
+
+def test_agent_run_endpoint_requires_user_start_and_returns_trade_annotations(tmp_path: Path):
+    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+
+    response = client.post(
+        "/api/agent-runs",
+        json={"traderId": "brooks-generalist", "modelProvider": "mock"},
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["meta"]["agentStatus"] == "completed"
+    assert payload["meta"]["startedBy"] == "user"
+    assert payload["meta"]["modelProvider"] == "mock"
+    assert payload["analysis"]["modelUsage"]["provider"] == "mock"
+    assert payload["analysis"]["reasoningSummary"]
+    assert payload["analysis"]["positionSizeSuggestion"] == 1
+    assert payload["orders"][0]["quantity"] == 1
+    assert payload["orders"][0]["reason"]
+    marker_by_type = {
+        marker["marker_type"]: marker
+        for marker in payload["chartObjects"]
+        if marker["kind"] == "trade_marker"
+    }
+    assert {"entry", "stop", "target"} <= set(marker_by_type)
+    assert marker_by_type["entry"]["quantity"] == 1
+    assert "reason" in marker_by_type["entry"]
+    assert "stop" in marker_by_type["stop"]["label"].lower()
+    assert "target" in marker_by_type["target"]["label"].lower()
+    assert payload["meta"]["recordCounts"]["analysis_runs"] == 1
 
 
 def test_app_uses_environment_database_path_by_default(tmp_path: Path, monkeypatch):

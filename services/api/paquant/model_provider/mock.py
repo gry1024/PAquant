@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from paquant.model_provider.base import ModelRequest, ModelResponse, ModelUsage
+from paquant.model_provider.base import ModelRequest, ModelResponse, ModelToolCall, ModelUsage
 
 
 class MockModelProvider:
@@ -13,9 +13,21 @@ class MockModelProvider:
             "schema": request.schema_name,
             "summary": "Structured Brooks decision based on context, levels, and risk.",
         }
+        tool_calls = [
+            ModelToolCall(
+                id=f"mock-tool-call-{index}",
+                name=str(command["tool"]),
+                arguments=dict(command.get("arguments", {})),
+            )
+            for index, command in enumerate(
+                request.metadata.get("tool_commands", []),
+                start=1,
+            )
+        ]
         return ModelResponse(
             text="Structured Brooks decision based on context, levels, and risk.",
             structured=structured,
+            tool_calls=tool_calls,
             usage=ModelUsage(
                 provider=self.provider,
                 model=self.model,

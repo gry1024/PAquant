@@ -33,6 +33,22 @@ def test_limit_order_fills_and_records_r_multiple():
     assert engine.equity_curve[-1]["equity"] == 10_010
 
 
+def test_simulated_order_records_position_size_and_trade_reason():
+    order = SimulatedOrder.limit_buy(
+        symbol="XAUUSD",
+        timeframe="5m",
+        entry=2310,
+        stop=2305,
+        target=2320,
+        quantity=1.25,
+        setup_name="pullback",
+        reason="Pullback held above the always-in trend line.",
+    )
+
+    assert order.quantity == 1.25
+    assert order.reason == "Pullback held above the always-in trend line."
+
+
 def test_risk_guard_rejects_oversized_order():
     engine = SimulationEngine(
         starting_equity=10_000,

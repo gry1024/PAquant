@@ -30,7 +30,13 @@ function channelPair(object: Extract<ChartObject, { kind: "channel" }>, candles:
 
 export function DrawingOverlay({ candles, objects }: DrawingOverlayProps) {
   return (
-    <svg className="drawing-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="drawing-overlay"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-label="AI chart annotations"
+      role="img"
+    >
       {objects.map((object) => {
         if (object.kind === "trendline") {
           const [start, end] = pointPair(object, candles);
@@ -123,14 +129,36 @@ export function DrawingOverlay({ candles, objects }: DrawingOverlayProps) {
             { time_index: object.time_index, price: object.price },
             candles
           );
+          const yOffset = object.marker_type === "stop" ? 4.2 : -2.4;
+          const labelPosition = markerLabelPosition(point.x);
           return (
-            <circle
-              key={object.id}
-              className={`trade-dot ${object.marker_type}`}
-              cx={point.x}
-              cy={point.y}
-              r={1.15}
-            />
+            <g key={object.id} className={`trade-marker ${object.marker_type}`}>
+              <title>{object.reason ?? object.label}</title>
+              <circle
+                className={`trade-dot ${object.marker_type}`}
+                cx={point.x}
+                cy={point.y}
+                r={1.15}
+              />
+              <text
+                className={`trade-marker-label ${object.marker_type}`}
+                x={labelPosition.x}
+                y={Math.max(5, Math.min(point.y + yOffset, 95))}
+                textAnchor={labelPosition.anchor}
+              >
+                {formatTradeMarkerLabel(object)}
+              </text>
+              {object.reason ? (
+                <text
+                  className="trade-marker-reason"
+                  x={labelPosition.x}
+                  y={Math.max(8, Math.min(point.y + yOffset + 3.4, 98))}
+                  textAnchor={labelPosition.anchor}
+                >
+                  {formatTradeMarkerReason(object.marker_type)}
+                </text>
+              ) : null}
+            </g>
           );
         }
 
@@ -138,4 +166,30 @@ export function DrawingOverlay({ candles, objects }: DrawingOverlayProps) {
       })}
     </svg>
   );
+}
+
+function markerLabelPosition(x: number): { x: number; anchor: "start" | "end" } {
+  if (x > 58) {
+    return { x: Math.max(28, x - 1.8), anchor: "end" };
+  }
+  return { x: Math.min(70, x + 1.8), anchor: "start" };
+}
+
+function formatTradeMarkerLabel(object: Extract<ChartObject, { kind: "trade_marker" }>) {
+  const quantity = object.quantity == null ? "" : ` size ${object.quantity}`;
+  const label = object.marker_type === "entry" ? "Entry" : object.marker_type === "stop" ? "Stop" : "Target";
+  return `${label} ${object.price.toFixed(2)}${quantity}`;
+}
+
+function formatTradeMarkerReason(markerType: "entry" | "stop" | "target" | "fill") {
+  if (markerType === "entry") {
+    return "Reason: pullback thesis";
+  }
+  if (markerType === "stop") {
+    return "Reason: swing invalidation";
+  }
+  if (markerType === "target") {
+    return "Reason: 2R measured reward";
+  }
+  return "Reason: simulated fill";
 }

@@ -1436,18 +1436,32 @@
     {
       "kind": "trade_marker",
       "id": "entry-marker",
-      "label": "Sim entry",
-      "time_index": 0,
+      "label": "Entry 2310.00 | Size 1",
+      "time_index": 12,
       "price": 2310.0,
-      "marker_type": "entry"
+      "marker_type": "entry",
+      "quantity": 1.0,
+      "reason": "Pullback held above the always-in trend line; trader's equation offered 5 points risk for a 10 point target."
+    },
+    {
+      "kind": "trade_marker",
+      "id": "stop-marker",
+      "label": "Stop 2305.00 | Size 1",
+      "time_index": 12,
+      "price": 2305.0,
+      "marker_type": "stop",
+      "quantity": 1.0,
+      "reason": "Stop is below the pullback invalidation swing."
     },
     {
       "kind": "trade_marker",
       "id": "target-marker",
-      "label": "2R target",
+      "label": "Target 2320.00 | Size 1",
       "time_index": 17,
       "price": 2320.0,
-      "marker_type": "target"
+      "marker_type": "target",
+      "quantity": 1.0,
+      "reason": "Target marks the 2R measured reward from the pullback entry."
     }
   ],
   "analysis": {
@@ -1478,6 +1492,8 @@
     "entryType": "limit buy",
     "stop": 2305.0,
     "target": 2320.0,
+    "positionSizeSuggestion": 1.0,
+    "noTradeReason": null,
     "confidence": 0.64,
     "reasoningSummary": "Structured Brooks decision based on context, levels, and risk.",
     "knowledgeRefs": [
@@ -1537,6 +1553,7 @@
     "evidenceTrail": [
       "Context checked before setup label.",
       "Always-in bias derived from replay swing direction.",
+      "Model API returned tool calls that were executed by drawing tools.",
       "Retrieved Brooks refs: wedge_reversal, three_push_channel_overshoot, wedge_quality, failed_breakout, failed_breakout_range_reentry.",
       "Trader's equation uses 5 points risk for 10 points reward."
     ],
@@ -1561,6 +1578,7 @@
       "target": 2320.0,
       "quantity": 1.0,
       "setup_name": "Brooks pullback in always-in long context",
+      "reason": "Pullback held above the always-in trend line; trader's equation offered 5 points risk for a 10 point target.",
       "status": "closed",
       "filled_entry": 2310.0
     }
@@ -2241,10 +2259,12 @@
         {
           "kind": "trade_marker",
           "id": "entry-marker",
-          "label": "Sim entry",
-          "time_index": 0,
+          "label": "Entry 2310.00 | Size 1",
+          "time_index": 12,
           "price": 2310.0,
-          "marker_type": "entry"
+          "marker_type": "entry",
+          "quantity": 1.0,
+          "reason": "Pullback held above the always-in trend line; trader's equation offered 5 points risk for a 10 point target."
         }
       ],
       "analysisSummary": "Simulated limit order filled inside the pullback zone."
@@ -2439,10 +2459,12 @@
         {
           "kind": "trade_marker",
           "id": "target-marker",
-          "label": "2R target",
+          "label": "Target 2320.00 | Size 1",
           "time_index": 17,
           "price": 2320.0,
-          "marker_type": "target"
+          "marker_type": "target",
+          "quantity": 1.0,
+          "reason": "Target marks the 2R measured reward from the pullback entry."
         },
         {
           "kind": "measured_move",

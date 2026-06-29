@@ -82,6 +82,8 @@ export type ChartObject =
       time_index: number;
       price: number;
       marker_type: "entry" | "stop" | "target" | "fill";
+      quantity?: number | null;
+      reason?: string | null;
     };
 
 export interface KeyLevel {
@@ -121,6 +123,8 @@ export interface Analysis {
   entryType: string;
   stop: number | null;
   target: number | null;
+  positionSizeSuggestion: number;
+  noTradeReason: string | null;
   confidence: number;
   reasoningSummary: string;
   knowledgeRefs: KnowledgeRef[];
@@ -147,6 +151,7 @@ export interface SimulatedOrder {
   target: number;
   quantity: number;
   setup_name: string;
+  reason: string;
   status: "submitted" | "triggered" | "filled" | "canceled" | "closed" | string;
 }
 
@@ -237,9 +242,28 @@ export interface WorkbenchMeta {
   symbol: "XAUUSD";
   timeframe: "5m";
   traderId: string;
+  modelProvider?: string;
+  model?: string;
+  startedBy?: string;
+  agentStatus?: "idle" | "running" | "completed" | "failed" | string;
   analysisRunId?: number;
   persisted?: boolean;
   recordCounts?: Record<string, number>;
+}
+
+export interface ModelProviderChoice {
+  id: string;
+  name: string;
+  model: string;
+  apiKeyEnv: string | null;
+  available: boolean;
+  capabilities: {
+    text: boolean;
+    vision: boolean;
+    structured_output: boolean;
+    tool_calling: boolean;
+    context_window: number;
+  };
 }
 
 export interface TraderProfile {
