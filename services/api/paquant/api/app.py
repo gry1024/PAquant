@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from paquant.agent_runtime.registry import list_trader_profiles
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema
 from paquant.export_fixture import build_demo_fixture
@@ -18,6 +19,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     connection = sqlite3.connect(resolved_database_path, check_same_thread=False)
     create_schema(connection)
     repository = AuditRepository(connection)
+    _seed_trader_profiles(repository)
 
     app = FastAPI(title="PAquant API", version="0.1.0")
     app.state.connection = connection
@@ -38,6 +40,14 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def get_demo_workbench() -> dict[str, Any]:
         return _with_meta(build_demo_fixture(), persisted=False)
 
+    @app.get("/api/traders")
+    def get_traders() -> dict[str, Any]:
+        profiles_by_id = {profile["id"]: profile for profile in repository.list_trader_profiles()}
+        ordered_profiles = [
+            _profile_to_api(profiles_by_id[profile.id]) for profile in list_trader_profiles()
+        ]
+        return {"traders": ordered_profiles}
+
     @app.post("/api/workbench/demo/runs", status_code=201)
     def create_demo_run() -> dict[str, Any]:
         payload = build_demo_fixture()
@@ -54,6 +64,39 @@ def _resolve_database_path(database_path: str | Path | None) -> str:
     path = Path(candidate)
     path.parent.mkdir(parents=True, exist_ok=True)
     return str(path)
+
+
+def _seed_trader_profiles(repository: AuditRepository) -> None:
+    for profile in list_trader_profiles():
+        repository.upsert_trader_profile(
+            profile_id=profile.id,
+            name=profile.name,
+            payload=profile.model_dump(mode="json"),
+        )
+
+
+def _profile_to_api(profile: dict[str, Any]) -> dict[str, Any]:
+    performance = profile["performance"]
+    return {
+        "id": profile["id"],
+        "name": profile["name"],
+        "persona": profile["persona"],
+        "status": profile["status"],
+        "symbol": profile["symbol"],
+        "timeframe": profile["timeframe"],
+        "preferredSetups": profile["preferred_setups"],
+        "riskStyle": profile["risk_style"],
+        "toolPermissions": profile["tool_permissions"],
+        "knowledgePolicy": profile["knowledge_policy"],
+        "recentAction": profile["recent_action"],
+        "performance": {
+            "equity": performance["equity"],
+            "winRate": performance["win_rate"],
+            "maxDrawdown": performance["max_drawdown"],
+            "trades": performance["trades"],
+            "averageR": performance["average_r"],
+        },
+    }
 
 
 def _with_meta(

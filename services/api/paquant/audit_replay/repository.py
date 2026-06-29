@@ -99,6 +99,33 @@ class AuditRepository:
         self.connection.commit()
         return int(cursor.lastrowid)
 
+    def upsert_trader_profile(
+        self, *, profile_id: str, name: str, payload: dict[str, Any]
+    ) -> None:
+        self.connection.execute(
+            """
+            INSERT INTO trader_profiles (id, name, payload_json)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              payload_json = excluded.payload_json
+            """,
+            (profile_id, name, json.dumps(payload, ensure_ascii=False)),
+        )
+        self.connection.commit()
+
+    def list_trader_profiles(self) -> list[dict[str, Any]]:
+        rows = self.connection.execute(
+            "SELECT id, name, payload_json FROM trader_profiles"
+        ).fetchall()
+        profiles: list[dict[str, Any]] = []
+        for profile_id, name, payload_json in rows:
+            payload = json.loads(payload_json)
+            payload["id"] = profile_id
+            payload["name"] = name
+            profiles.append(payload)
+        return profiles
+
     def count_rows(self, table_name: str) -> int:
         if table_name not in _COUNTABLE_TABLES:
             raise ValueError(f"cannot count unknown audit table: {table_name}")

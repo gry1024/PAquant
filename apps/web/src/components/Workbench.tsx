@@ -14,7 +14,8 @@ import { JournalPanel } from "./JournalPanel";
 import { OrdersPanel } from "./OrdersPanel";
 import { PerformanceStrip } from "./PerformanceStrip";
 import { TraderPanel } from "./TraderPanel";
-import type { WorkbenchFixture } from "../lib/workbenchTypes";
+import { TraderRosterPanel } from "./TraderRosterPanel";
+import type { TraderProfile, WorkbenchFixture } from "../lib/workbenchTypes";
 
 const tools = [
   { label: "Pointer", icon: MousePointer2 },
@@ -28,10 +29,11 @@ const tools = [
 
 interface WorkbenchProps {
   fixture: WorkbenchFixture;
+  traderProfiles: TraderProfile[];
   sourceLabel?: string;
 }
 
-export function Workbench({ fixture, sourceLabel }: WorkbenchProps) {
+export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchProps) {
   const latest = fixture.candles.at(-1);
   const trade = fixture.trades.at(0);
 
@@ -68,6 +70,11 @@ export function Workbench({ fixture, sourceLabel }: WorkbenchProps) {
             <span>{fixture.candles.length} bars</span>
           </div>
         </header>
+
+        <TraderRosterPanel
+          profiles={traderProfiles}
+          activeTraderId={fixture.analysis.traderId}
+        />
 
         <div className="main-grid">
           <ChartPanel fixture={fixture} />

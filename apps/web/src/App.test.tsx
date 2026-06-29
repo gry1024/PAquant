@@ -24,6 +24,9 @@ test("renders the PAquant trading workstation with fixture fallback", async () =
   expect(screen.getAllByText("Brooks Generalist").length).toBeGreaterThan(0);
   expect(screen.getAllByText(/Always-in/i).length).toBeGreaterThan(0);
   expect(screen.getByText("Fixture fallback")).toBeInTheDocument();
+  expect(screen.getByText("AI trader roster")).toBeInTheDocument();
+  expect(screen.getByText("Always-In Trend Trader")).toBeInTheDocument();
+  expect(screen.getByText("Wedge/Reversal Specialist")).toBeInTheDocument();
   expect(screen.getByTestId("chart-host")).toBeInTheDocument();
   expect(screen.getByText(/Simulated orders/i)).toBeInTheDocument();
 });

@@ -113,7 +113,7 @@ select {
 
 .workspace {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
 }
 
@@ -190,6 +190,124 @@ h2 {
   color: #0f5d4d;
   border-color: rgba(15, 159, 120, 0.3) !important;
   background: rgba(15, 159, 120, 0.08) !important;
+}
+
+.trader-roster {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px 0;
+}
+
+.roster-heading {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-height: 82px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #233044;
+  background: #ffffff;
+}
+
+.roster-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.roster-heading strong {
+  color: var(--muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(172px, 1fr));
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.trader-roster-card {
+  display: grid;
+  grid-template-rows: auto minmax(32px, 1fr) auto;
+  gap: 6px;
+  min-height: 82px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #243246;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trader-roster-card:hover,
+.trader-roster-card:focus-visible {
+  border-color: #9fb0c5;
+  outline: none;
+}
+
+.trader-roster-card.active {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: #f5f9ff;
+}
+
+.roster-status-row,
+.roster-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.roster-status-row strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roster-status-row em {
+  padding: 2px 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  color: var(--muted);
+  background: #f8fafc;
+  font-size: 10px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.trader-roster-card.active .roster-status-row em {
+  color: #0f5d4d;
+  border-color: rgba(15, 159, 120, 0.28);
+  background: rgba(15, 159, 120, 0.08);
+}
+
+.roster-action {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #526276;
+  font-size: 11px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.roster-metrics {
+  color: var(--muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
 }
 
 .main-grid {
@@ -562,6 +680,20 @@ h2 {
 }
 
 @media (max-width: 1120px) {
+  .trader-roster {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-heading {
+    min-height: auto;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .roster-grid {
+    grid-template-columns: repeat(6, minmax(190px, 1fr));
+  }
+
   .main-grid {
     grid-template-columns: 1fr;
   }

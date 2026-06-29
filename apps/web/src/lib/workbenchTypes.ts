@@ -147,6 +147,27 @@ export interface WorkbenchMeta {
   recordCounts?: Record<string, number>;
 }
 
+export interface TraderProfile {
+  id: string;
+  name: string;
+  persona: string;
+  status: "active" | "standby" | "research";
+  symbol: "XAUUSD";
+  timeframe: "5m";
+  preferredSetups: string[];
+  riskStyle: string;
+  toolPermissions: string[];
+  knowledgePolicy: string;
+  recentAction: string;
+  performance: {
+    equity: number;
+    winRate: number;
+    maxDrawdown: number;
+    trades: number;
+    averageR: number;
+  };
+}
+
 export interface WorkbenchFixture {
   meta?: WorkbenchMeta;
   candles: Candle[];

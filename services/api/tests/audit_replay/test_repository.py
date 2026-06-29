@@ -1,5 +1,6 @@
 import sqlite3
 
+from paquant.agent_runtime.registry import get_trader_profile
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema, list_tables
 
@@ -84,3 +85,28 @@ def test_repository_records_full_audit_artifacts():
     assert repository.count_rows("orders") == 1
     assert repository.count_rows("trades") == 1
     assert repository.count_rows("journals") == 1
+
+
+def test_repository_upserts_and_lists_trader_profiles():
+    connection = sqlite3.connect(":memory:")
+    create_schema(connection)
+    repository = AuditRepository(connection)
+    profile = get_trader_profile("brooks-generalist")
+
+    repository.upsert_trader_profile(
+        profile_id=profile.id,
+        name=profile.name,
+        payload=profile.model_dump(mode="json"),
+    )
+    repository.upsert_trader_profile(
+        profile_id=profile.id,
+        name=profile.name,
+        payload={**profile.model_dump(mode="json"), "recent_action": "Updated action"},
+    )
+
+    rows = repository.list_trader_profiles()
+
+    assert repository.count_rows("trader_profiles") == 1
+    assert rows[0]["id"] == "brooks-generalist"
+    assert rows[0]["name"] == "Brooks Generalist"
+    assert rows[0]["recent_action"] == "Updated action"

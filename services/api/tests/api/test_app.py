@@ -36,6 +36,31 @@ def test_demo_workbench_endpoint_returns_chart_contract(tmp_path: Path):
     assert payload["trades"][0]["r_multiple"] == 2.0
 
 
+def test_traders_endpoint_returns_configured_roster(tmp_path: Path):
+    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+
+    response = client.get("/api/traders")
+
+    assert response.status_code == 200
+    payload = response.json()
+    trader_ids = [trader["id"] for trader in payload["traders"]]
+    assert trader_ids == [
+        "brooks-generalist",
+        "always-in-trend",
+        "best-trades-only",
+        "trading-range-scalper",
+        "wedge-reversal",
+        "breakout-failure",
+    ]
+    active = payload["traders"][0]
+    assert active["status"] == "active"
+    assert active["performance"]["winRate"] == 1.0
+    assert active["performance"]["maxDrawdown"] == 0.0
+    assert {"find_swings", "draw_trendline", "measure_leg"} <= set(
+        active["toolPermissions"]
+    )
+
+
 def test_demo_run_endpoint_persists_auditable_artifacts(tmp_path: Path):
     database_path = tmp_path / "paquant.sqlite3"
     client = TestClient(create_app(database_path=database_path))

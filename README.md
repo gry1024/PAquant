@@ -44,6 +44,7 @@ pnpm api
 The API exposes:
 
 - `GET /healthz`
+- `GET /api/traders`
 - `GET /api/workbench/demo`
 - `POST /api/workbench/demo/runs`
 
