@@ -2,7 +2,7 @@
 
 PAquant is an AI-native price action quant trading project. The goal is to build a TradingView-like web workstation where AI traders analyze XAU 5-minute charts, draw structured annotations, simulate trades, journal decisions, and report performance.
 
-The current repository is in planning and pre-development setup. The canonical design document is:
+The current repository contains the phase-one vertical slice for local simulation and the CloudBase public preview. The canonical design document is:
 
 - [PAquant Pre-Development Design](docs/superpowers/specs/2026-06-30-paquant-design.md)
 
@@ -82,10 +82,15 @@ Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyCo
 ## Implemented Phase-One Slice
 
 - XAUUSD 5-minute deterministic replay data.
+- Derived M15/H1 auxiliary context from the primary XAU 5-minute replay.
 - Brooks structured knowledge artifact with source metadata.
+- Deterministic Brooks knowledge retrieval surfaced in the AI trader audit trail.
 - Serializable chart objects and drawing geometry helpers.
 - Deterministic simulated order/trade engine with R multiple and equity curve.
+- Stop-limit order state, risk guards, and configurable spread/slippage execution costs.
 - SQLite audit/replay schema and repository boundary.
 - Mockable model provider and Brooks Generalist AI trader output schema.
+- Brooks Generalist trade and no-trade decision paths.
 - Local FastAPI product API for health checks, workbench payloads, and persisted demo agent runs.
-- TradingView-like desktop web workstation with candlesticks, drawing overlay, analysis, simulated orders, journal, and performance panels.
+- TradingView-like desktop web workstation with candlesticks, drawing overlay, bar-by-bar replay controls, analysis, knowledge refs, simulated orders, journal, replay snapshots, and performance panels.
+- CloudBase static public preview at `https://paquant-groy-env-d5g7okht7dcd202fe.webapps.tcloudbase.com`.
