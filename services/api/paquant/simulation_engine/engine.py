@@ -5,26 +5,65 @@ from paquant.simulation_engine.orders import (
     OrderSide,
     OrderStatus,
     OrderType,
+    PerformanceSummary,
+    RiskSettings,
+    SetupPerformance,
     SimulatedOrder,
     SimulatedTrade,
 )
 
 
 class SimulationEngine:
-    def __init__(self, starting_equity: float) -> None:
+    def __init__(
+        self,
+        starting_equity: float,
+        risk_settings: RiskSettings | None = None,
+    ) -> None:
         self.starting_equity = starting_equity
         self.equity = starting_equity
+        self.risk_settings = risk_settings or RiskSettings()
         self.orders: list[SimulatedOrder] = []
         self.trades: list[SimulatedTrade] = []
         self._open_orders: list[SimulatedOrder] = []
         self._open_positions: list[SimulatedOrder] = []
+        self._position_excursions: dict[str, dict[str, float]] = {}
         self.equity_curve: list[dict[str, float | str]] = [
             {"time": "start", "equity": starting_equity}
         ]
 
     def submit_order(self, order: SimulatedOrder) -> SimulatedOrder:
+        self._validate_order_risk(order)
         self.orders.append(order)
         self._open_orders.append(order)
+        return order
+
+    def cancel_order(self, order_id: str) -> SimulatedOrder:
+        order = self._find_open_order(order_id)
+        order.status = OrderStatus.CANCELED
+        self._open_orders.remove(order)
+        return order
+
+    def modify_order(
+        self,
+        order_id: str,
+        *,
+        entry: float | None = None,
+        stop: float | None = None,
+        target: float | None = None,
+    ) -> SimulatedOrder:
+        order = self._find_open_order(order_id)
+        original = (order.entry, order.stop, order.target)
+        if entry is not None:
+            order.entry = entry
+        if stop is not None:
+            order.stop = stop
+        if target is not None:
+            order.target = target
+        try:
+            self._validate_order_risk(order)
+        except ValueError:
+            order.entry, order.stop, order.target = original
+            raise
         return order
 
     def on_candle(self, candle: Candle) -> None:
@@ -33,12 +72,15 @@ class SimulationEngine:
                 order.status = OrderStatus.FILLED
                 self._open_orders.remove(order)
                 self._open_positions.append(order)
+                self._position_excursions[order.id] = {"mfe": 0.0, "mae": 0.0}
 
         for order in list(self._open_positions):
+            self._update_excursion(order, candle)
             trade = self._maybe_close(order, candle)
             if trade is not None:
                 order.status = OrderStatus.CLOSED
                 self._open_positions.remove(order)
+                self._position_excursions.pop(order.id, None)
                 self.trades.append(trade)
                 self.equity += trade.pnl
                 self.equity_curve.append(
@@ -48,6 +90,10 @@ class SimulationEngine:
     def _should_fill(self, order: SimulatedOrder, candle: Candle) -> bool:
         if order.order_type == OrderType.MARKET:
             return True
+        if order.order_type == OrderType.STOP:
+            if order.side == OrderSide.BUY:
+                return candle.high >= order.entry
+            return candle.low <= order.entry
         return candle.low <= order.entry <= candle.high
 
     def _maybe_close(self, order: SimulatedOrder, candle: Candle) -> SimulatedTrade | None:
@@ -74,6 +120,9 @@ class SimulationEngine:
             signed_points *= -1
         pnl = signed_points * order.quantity
         r_multiple = pnl / (risk_points * order.quantity) if risk_points else 0
+        excursion = self._position_excursions.get(order.id, {"mfe": 0.0, "mae": 0.0})
+        max_favorable_r = excursion["mfe"] / risk_points if risk_points else 0
+        max_adverse_r = excursion["mae"] / risk_points if risk_points else 0
         return SimulatedTrade(
             order_id=order.id,
             symbol=order.symbol,
@@ -86,7 +135,97 @@ class SimulationEngine:
             exit=exit_price,
             quantity=order.quantity,
             risk_points=risk_points,
+            mfe_points=excursion["mfe"],
+            mae_points=excursion["mae"],
+            max_favorable_r=max_favorable_r,
+            max_adverse_r=max_adverse_r,
             pnl=pnl,
             r_multiple=r_multiple,
             outcome=outcome,
+        )
+
+    def performance_summary(self) -> PerformanceSummary:
+        total_trades = len(self.trades)
+        wins = sum(1 for trade in self.trades if trade.pnl > 0)
+        setup_stats = [
+            self._setup_performance(setup_name, trades)
+            for setup_name, trades in self._group_trades_by_setup().items()
+        ]
+        return PerformanceSummary(
+            starting_equity=self.starting_equity,
+            ending_equity=self.equity,
+            total_trades=total_trades,
+            win_rate=wins / total_trades if total_trades else 0,
+            net_pnl=self.equity - self.starting_equity,
+            max_drawdown=self._max_drawdown(),
+            setup_stats=setup_stats,
+        )
+
+    def _find_open_order(self, order_id: str) -> SimulatedOrder:
+        for order in self._open_orders:
+            if order.id == order_id:
+                return order
+        raise KeyError(order_id)
+
+    def _validate_order_risk(self, order: SimulatedOrder) -> None:
+        order_risk = abs(order.entry - order.stop) * order.quantity
+        if (
+            self.risk_settings.max_risk_per_order is not None
+            and order_risk > self.risk_settings.max_risk_per_order
+        ):
+            raise ValueError(
+                f"order risk {order_risk} exceeds limit "
+                f"{self.risk_settings.max_risk_per_order}"
+            )
+        if (
+            self.risk_settings.max_quantity is not None
+            and order.quantity > self.risk_settings.max_quantity
+        ):
+            raise ValueError(
+                f"order quantity {order.quantity} exceeds limit "
+                f"{self.risk_settings.max_quantity}"
+            )
+
+    def _update_excursion(self, order: SimulatedOrder, candle: Candle) -> None:
+        excursion = self._position_excursions[order.id]
+        if order.side == OrderSide.BUY:
+            favorable = candle.high - order.entry
+            adverse = candle.low - order.entry
+        else:
+            favorable = order.entry - candle.low
+            adverse = order.entry - candle.high
+        excursion["mfe"] = max(excursion["mfe"], favorable, 0)
+        excursion["mae"] = min(excursion["mae"], adverse, 0)
+
+    def _max_drawdown(self) -> float:
+        peak = self.starting_equity
+        max_drawdown = 0.0
+        for point in self.equity_curve:
+            equity = float(point["equity"])
+            peak = max(peak, equity)
+            max_drawdown = min(max_drawdown, equity - peak)
+        return max_drawdown
+
+    def _group_trades_by_setup(self) -> dict[str, list[SimulatedTrade]]:
+        grouped: dict[str, list[SimulatedTrade]] = {}
+        for trade in self.trades:
+            grouped.setdefault(trade.setup_name, []).append(trade)
+        return grouped
+
+    def _setup_performance(
+        self, setup_name: str, trades: list[SimulatedTrade]
+    ) -> SetupPerformance:
+        wins = sum(1 for trade in trades if trade.pnl > 0)
+        losses = sum(1 for trade in trades if trade.pnl <= 0)
+        total_pnl = sum(trade.pnl for trade in trades)
+        total_r = sum(trade.r_multiple for trade in trades)
+        return SetupPerformance(
+            setup_name=setup_name,
+            trades=len(trades),
+            wins=wins,
+            losses=losses,
+            win_rate=wins / len(trades) if trades else 0,
+            total_pnl=total_pnl,
+            total_r=total_r,
+            average_r=total_r / len(trades) if trades else 0,
         )

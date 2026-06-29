@@ -34,8 +34,10 @@ export function OrdersPanel({ orders, trades }: OrdersPanelProps) {
       {trades.map((trade) => (
         <div className="trade-result" key={trade.order_id}>
           <strong>{trade.r_multiple.toFixed(1)}R</strong>
-          <span>
-            {trade.outcome} | pnl {trade.pnl.toFixed(2)}
+          <span>{trade.outcome} | pnl {trade.pnl.toFixed(2)}</span>
+          <span className="trade-excursion">
+            <span>MFE</span> {trade.mfe_points.toFixed(2)}
+            <span>MAE</span> {trade.mae_points.toFixed(2)}
           </span>
         </div>
       ))}

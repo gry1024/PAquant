@@ -121,6 +121,10 @@ export interface SimulatedTrade {
   exit: number;
   quantity: number;
   risk_points: number;
+  mfe_points: number;
+  mae_points: number;
+  max_favorable_r: number;
+  max_adverse_r: number;
   pnl: number;
   r_multiple: number;
   outcome: string;
@@ -135,6 +139,27 @@ export interface JournalEntry {
   time: string;
   event: string;
   text: string;
+}
+
+export interface SetupPerformance {
+  setup_name: string;
+  trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  total_pnl: number;
+  total_r: number;
+  average_r: number;
+}
+
+export interface PerformanceSummary {
+  starting_equity: number;
+  ending_equity: number;
+  total_trades: number;
+  win_rate: number;
+  net_pnl: number;
+  max_drawdown: number;
+  setup_stats: SetupPerformance[];
 }
 
 export interface WorkbenchMeta {
@@ -176,6 +201,7 @@ export interface WorkbenchFixture {
   orders: SimulatedOrder[];
   trades: SimulatedTrade[];
   equityCurve: EquityPoint[];
+  performanceSummary: PerformanceSummary;
   journal: JournalEntry[];
   knowledge: {
     version: string;

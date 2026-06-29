@@ -120,6 +120,7 @@ def build_demo_fixture() -> dict[str, Any]:
         "orders": [order.model_dump(mode="json")],
         "trades": [trade.model_dump(mode="json") for trade in engine.trades],
         "equityCurve": engine.equity_curve,
+        "performanceSummary": engine.performance_summary().model_dump(mode="json"),
         "journal": [
             {
                 "time": candles[0].timestamp.isoformat(),
