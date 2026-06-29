@@ -524,6 +524,7 @@ h2 {
 .level-list,
 .compact-list,
 .journal-list,
+.replay-timeline,
 .action-stream,
 .evidence-rail {
   padding: 0;
@@ -634,7 +635,7 @@ h2 {
 
 .bottom-grid {
   display: grid;
-  grid-template-columns: 1.25fr 1fr 0.85fr 1fr;
+  grid-template-columns: 1.05fr 1fr 1.15fr 0.9fr 1fr;
   gap: 10px;
   padding: 0 10px 10px;
 }
@@ -742,31 +743,66 @@ h2 {
   border-bottom: 1px solid var(--line-soft);
 }
 
+.replay-timeline {
+  display: grid;
+  gap: 7px;
+}
+
+.replay-timeline li {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
 .journal-list time {
   color: var(--muted);
   font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
 }
 
+.replay-timeline time {
+  color: var(--blue);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
 .journal-list strong,
 .journal-list span,
+.replay-timeline strong,
+.replay-timeline span,
 .compact-list strong,
 .compact-list span {
   display: block;
 }
 
 .journal-list strong,
+.replay-timeline strong,
 .compact-list strong {
   color: var(--ink);
   font-size: 12px;
 }
 
 .journal-list span,
+.replay-timeline span,
 .compact-list span {
   margin-top: 3px;
   color: #526276;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.replay-timeline em {
+  display: block;
+  margin-top: 4px;
+  color: #243246;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-style: normal;
 }
 
 .metric-grid {

@@ -34,6 +34,8 @@ def test_demo_workbench_endpoint_returns_chart_contract(tmp_path: Path):
     assert payload["analysis"]["modelUsage"]["provider"] == "mock"
     assert payload["agentActions"][0]["tool"] == "find_swings"
     assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
+    assert payload["tradeReplay"][-1]["stage"] == "post-trade review"
+    assert payload["tradeReplay"][-1]["outcome"] == "target"
     assert any(obj["kind"] == "trendline" for obj in payload["chartObjects"])
     assert any(obj["kind"] == "channel" for obj in payload["chartObjects"])
     assert payload["trades"][0]["r_multiple"] == 2.0

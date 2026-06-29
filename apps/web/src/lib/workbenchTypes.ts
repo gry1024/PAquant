@@ -160,6 +160,17 @@ export interface JournalEntry {
   text: string;
 }
 
+export interface TradeReplayStep {
+  stage: "pre-entry" | "plan" | "execution" | "outcome" | "post-trade review";
+  title: string;
+  time: string;
+  barIndex: number;
+  chartObjectIds: string[];
+  orderId: string | null;
+  outcome: string;
+  narrative: string;
+}
+
 export interface SetupPerformance {
   setup_name: string;
   trades: number;
@@ -280,6 +291,7 @@ export interface WorkbenchFixture {
   analysis: Analysis;
   orders: SimulatedOrder[];
   trades: SimulatedTrade[];
+  tradeReplay: TradeReplayStep[];
   equityCurve: EquityPoint[];
   performanceSummary: PerformanceSummary;
   journal: JournalEntry[];

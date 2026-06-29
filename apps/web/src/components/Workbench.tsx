@@ -13,6 +13,7 @@ import { JournalPanel } from "./JournalPanel";
 import { KnowledgeBrowserPanel } from "./KnowledgeBrowserPanel";
 import { OrdersPanel } from "./OrdersPanel";
 import { PerformanceStrip } from "./PerformanceStrip";
+import { TradeReplayPanel } from "./TradeReplayPanel";
 import { TraderPanel } from "./TraderPanel";
 import { TraderRosterPanel } from "./TraderRosterPanel";
 import type { TraderProfile, WorkbenchFixture } from "../lib/workbenchTypes";
@@ -84,6 +85,7 @@ export function Workbench({ fixture, traderProfiles, sourceLabel }: WorkbenchPro
         <section className="bottom-grid" aria-label="Simulation and replay audit">
           <OrdersPanel orders={fixture.orders} trades={fixture.trades} />
           <JournalPanel entries={fixture.journal} />
+          <TradeReplayPanel steps={fixture.tradeReplay} />
           <PerformanceStrip
             equityCurve={fixture.equityCurve}
             summary={fixture.performanceSummary}

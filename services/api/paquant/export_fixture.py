@@ -55,6 +55,73 @@ def _action_payload(action: AgentAction) -> dict[str, Any]:
     }
 
 
+def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[str, Any]]:
+    return [
+        {
+            "stage": "pre-entry",
+            "title": "Pre-entry",
+            "time": candles[8].timestamp.isoformat(),
+            "barIndex": 8,
+            "chartObjectIds": ["tl-primary", "channel-primary", "box-pullback"],
+            "orderId": None,
+            "outcome": "observing",
+            "narrative": (
+                "AI marked the always-in trend line, channel projection, and early "
+                "pullback box before committing to a trade."
+            ),
+        },
+        {
+            "stage": "plan",
+            "title": "Plan",
+            "time": candles[10].timestamp.isoformat(),
+            "barIndex": 10,
+            "chartObjectIds": ["fib-swing", "tl-primary"],
+            "orderId": order.id,
+            "outcome": "pending",
+            "narrative": (
+                "Limit buy plan used 5 points of risk and a 2R target while the "
+                "pullback held above the invalidation price."
+            ),
+        },
+        {
+            "stage": "execution",
+            "title": "Execution",
+            "time": candles[12].timestamp.isoformat(),
+            "barIndex": 12,
+            "chartObjectIds": ["entry-marker"],
+            "orderId": order.id,
+            "outcome": "filled",
+            "narrative": "Simulated limit order filled inside the pullback zone.",
+        },
+        {
+            "stage": "outcome",
+            "title": "Outcome",
+            "time": candles[17].timestamp.isoformat(),
+            "barIndex": 17,
+            "chartObjectIds": ["target-marker", "mm-target"],
+            "orderId": order.id,
+            "outcome": trade.outcome,
+            "narrative": (
+                f"Trade reached target for {trade.r_multiple:.1f}R with "
+                f"{trade.mfe_points:.2f} points MFE."
+            ),
+        },
+        {
+            "stage": "post-trade review",
+            "title": "Post-trade review",
+            "time": candles[18].timestamp.isoformat(),
+            "barIndex": 18,
+            "chartObjectIds": ["three-push", "channel-primary"],
+            "orderId": order.id,
+            "outcome": trade.outcome,
+            "narrative": (
+                "Review notes that the channel context and measured target were "
+                "aligned; future invalidation remains a break below the prior swing."
+            ),
+        },
+    ]
+
+
 def build_knowledge_browser_payload() -> dict[str, Any]:
     knowledge = compile_core_knowledge()
     return {
@@ -169,6 +236,7 @@ def build_demo_fixture() -> dict[str, Any]:
     engine.submit_order(order)
     for candle in candles:
         engine.on_candle(candle)
+    trade = engine.trades[0]
 
     return {
         "candles": [candle.model_dump(mode="json") for candle in candles],
@@ -177,6 +245,7 @@ def build_demo_fixture() -> dict[str, Any]:
         "analysis": _analysis_payload(decision),
         "orders": [order.model_dump(mode="json")],
         "trades": [trade.model_dump(mode="json") for trade in engine.trades],
+        "tradeReplay": _trade_replay_payload(candles, order, trade),
         "equityCurve": engine.equity_curve,
         "performanceSummary": engine.performance_summary().model_dump(mode="json"),
         "journal": [

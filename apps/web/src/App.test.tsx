@@ -32,6 +32,10 @@ test("renders the PAquant trading workstation with fixture fallback", async () =
   expect(screen.getByText("draw_channel")).toBeInTheDocument();
   expect(screen.getByText("measure_deviation")).toBeInTheDocument();
   expect(screen.getByText(/Simulated orders/i)).toBeInTheDocument();
+  expect(screen.getByText("Trade replay")).toBeInTheDocument();
+  expect(screen.getByText("Pre-entry")).toBeInTheDocument();
+  expect(screen.getByText("Execution")).toBeInTheDocument();
+  expect(screen.getByText("Post-trade review")).toBeInTheDocument();
   expect(screen.getByText("MFE")).toBeInTheDocument();
   expect(screen.getByText("MAE")).toBeInTheDocument();
   expect(screen.getByText("Max DD")).toBeInTheDocument();

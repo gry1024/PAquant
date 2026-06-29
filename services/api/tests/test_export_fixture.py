@@ -11,6 +11,7 @@ def test_demo_fixture_contains_workbench_payload():
         "analysis",
         "orders",
         "trades",
+        "tradeReplay",
         "equityCurve",
         "performanceSummary",
         "journal",
@@ -20,6 +21,14 @@ def test_demo_fixture_contains_workbench_payload():
     assert payload["analysis"]["traderId"] == "brooks-generalist"
     assert any(action["tool"] == "draw_channel" for action in payload["agentActions"])
     assert any(action["tool"] == "measure_deviation" for action in payload["agentActions"])
+    assert [step["stage"] for step in payload["tradeReplay"]] == [
+        "pre-entry",
+        "plan",
+        "execution",
+        "outcome",
+        "post-trade review",
+    ]
+    assert "tl-primary" in payload["tradeReplay"][0]["chartObjectIds"]
     assert payload["trades"][0]["mfe_points"] >= 10
     assert payload["trades"][0]["mae_points"] <= -3
     assert payload["performanceSummary"]["total_trades"] == 1

@@ -1510,6 +1510,73 @@
       "outcome": "target"
     }
   ],
+  "tradeReplay": [
+    {
+      "stage": "pre-entry",
+      "title": "Pre-entry",
+      "time": "2026-06-30T00:40:00+00:00",
+      "barIndex": 8,
+      "chartObjectIds": [
+        "tl-primary",
+        "channel-primary",
+        "box-pullback"
+      ],
+      "orderId": null,
+      "outcome": "observing",
+      "narrative": "AI marked the always-in trend line, channel projection, and early pullback box before committing to a trade."
+    },
+    {
+      "stage": "plan",
+      "title": "Plan",
+      "time": "2026-06-30T00:50:00+00:00",
+      "barIndex": 10,
+      "chartObjectIds": [
+        "fib-swing",
+        "tl-primary"
+      ],
+      "orderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "outcome": "pending",
+      "narrative": "Limit buy plan used 5 points of risk and a 2R target while the pullback held above the invalidation price."
+    },
+    {
+      "stage": "execution",
+      "title": "Execution",
+      "time": "2026-06-30T01:00:00+00:00",
+      "barIndex": 12,
+      "chartObjectIds": [
+        "entry-marker"
+      ],
+      "orderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "outcome": "filled",
+      "narrative": "Simulated limit order filled inside the pullback zone."
+    },
+    {
+      "stage": "outcome",
+      "title": "Outcome",
+      "time": "2026-06-30T01:25:00+00:00",
+      "barIndex": 17,
+      "chartObjectIds": [
+        "target-marker",
+        "mm-target"
+      ],
+      "orderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "outcome": "target",
+      "narrative": "Trade reached target for 2.0R with 10.01 points MFE."
+    },
+    {
+      "stage": "post-trade review",
+      "title": "Post-trade review",
+      "time": "2026-06-30T01:30:00+00:00",
+      "barIndex": 18,
+      "chartObjectIds": [
+        "three-push",
+        "channel-primary"
+      ],
+      "orderId": "sim-XAUUSD-5m-Brooks pullback in always-in long context",
+      "outcome": "target",
+      "narrative": "Review notes that the channel context and measured target were aligned; future invalidation remains a break below the prior swing."
+    }
+  ],
   "equityCurve": [
     {
       "time": "start",
