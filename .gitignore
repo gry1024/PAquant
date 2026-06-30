@@ -23,6 +23,8 @@ test-results/
 data/
 logs/
 artifacts/
+!services/api/paquant/knowledge_layer/artifacts/
+!services/api/paquant/knowledge_layer/artifacts/brooks_core.json
 tmp/
 
 教材和视频/

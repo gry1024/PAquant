@@ -17,11 +17,12 @@ const API_AGENT_RUNS_PATH = "/agent-runs";
 const FOREXSB_XAUUSD_M5_URL =
   "https://data.forexsb.com/datafeed/data/dukascopy/XAUUSD5.lb.gz";
 const FOREXSB_MAX_VISIBLE_CANDLES = 240;
+const FOREXSB_BROWSER_TIMEOUT_MS = 20_000;
 const FOREXSB_MILLENNIUM = Date.UTC(2000, 0, 1);
 const FOREXSB_XAU_PRICE_SCALE = 1000;
 const FOREXSB_XAU_VOLUME_SCALE = 1;
 const fixture = fixtureData as WorkbenchFixture;
-const fallbackProviders: ModelProviderChoice[] = [
+export const fallbackModelProviders: ModelProviderChoice[] = [
   {
     id: "deepseek",
     name: "DeepSeek",
@@ -83,11 +84,10 @@ const fallbackProviders: ModelProviderChoice[] = [
 export async function loadWorkbenchFixture(
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<WorkbenchFixture> {
-  const response = await fetcher(resolveApiUrl(API_LIVE_MARKET_PATH));
-  if (!response.ok) {
-    throw new Error(await readApiError(response));
+  const liveMarket = await loadLiveMarketPayload(fetcher);
+  if (hasUsableLiveCandles(liveMarket)) {
+    return workbenchFromLiveMarket(liveMarket);
   }
-  const liveMarket = (await response.json()) as LiveMarketPayload;
   const candles = await loadForexsbXauUsd5mCandles(fetcher).catch(() => null);
   if (candles && candles.length >= 20) {
     return workbenchFromLiveMarket({
@@ -108,6 +108,46 @@ export async function loadWorkbenchFixture(
   return workbenchFromLiveMarket(liveMarket);
 }
 
+export function loadInitialWorkbenchFixture(): WorkbenchFixture {
+  return {
+    ...fixture,
+    meta: {
+      source: "fixture",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      traderId: "brooks-generalist",
+      agentStatus: "idle"
+    },
+    agentActions: [],
+    chartObjects: [],
+    orders: [],
+    trades: [],
+    tradeSnapshots: [],
+    tradeReplay: [],
+    equityCurve: [],
+    performanceSummary: {
+      starting_equity: 0,
+      ending_equity: 0,
+      total_trades: 0,
+      win_rate: 0,
+      net_pnl: 0,
+      max_drawdown: 0,
+      setup_stats: []
+    },
+    journal: []
+  };
+}
+
+export async function loadLiveMarketPayload(
+  fetcher: typeof fetch = globalThis.fetch
+): Promise<LiveMarketPayload> {
+  const response = await fetcher(resolveApiUrl(API_LIVE_MARKET_PATH));
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+  return (await response.json()) as LiveMarketPayload;
+}
+
 export async function loadModelProviders(
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<ModelProviderChoice[]> {
@@ -117,9 +157,12 @@ export async function loadModelProviders(
       throw new Error(`PAquant API returned ${response.status}`);
     }
     const payload = (await response.json()) as { providers: ModelProviderChoice[] };
+    if (!payload.providers?.length) {
+      throw new Error("PAquant API returned no model providers");
+    }
     return payload.providers;
   } catch {
-    return fallbackProviders;
+    return fallbackModelProviders;
   }
 }
 
@@ -152,15 +195,28 @@ export async function startAgentRun(
 
 export async function loadForexsbXauUsd5mCandles(
   fetcher: typeof fetch = globalThis.fetch,
-  maxCandles = FOREXSB_MAX_VISIBLE_CANDLES
+  maxCandles = FOREXSB_MAX_VISIBLE_CANDLES,
+  timeoutMs = FOREXSB_BROWSER_TIMEOUT_MS
 ): Promise<Candle[]> {
-  const response = await fetcher(FOREXSB_XAUUSD_M5_URL, {
-    headers: { Accept: "application/octet-stream" }
-  });
-  if (!response.ok) {
-    throw new Error(`ForexSB XAUUSD M5 returned ${response.status}`);
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  const timeout =
+    controller == null
+      ? null
+      : globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetcher(FOREXSB_XAUUSD_M5_URL, {
+      headers: { Accept: "application/octet-stream" },
+      signal: controller?.signal
+    });
+    if (!response.ok) {
+      throw new Error(`ForexSB XAUUSD M5 returned ${response.status}`);
+    }
+    return parseForexsbXauUsd5m(await response.arrayBuffer(), maxCandles);
+  } finally {
+    if (timeout != null) {
+      globalThis.clearTimeout(timeout);
+    }
   }
-  return parseForexsbXauUsd5m(await response.arrayBuffer(), maxCandles);
 }
 
 export function parseForexsbXauUsd5m(buffer: ArrayBuffer, maxCandles: number): Candle[] {
@@ -261,6 +317,14 @@ function workbenchFromLiveMarket(payload: LiveMarketPayload): WorkbenchFixture {
     },
     journal: []
   };
+}
+
+function hasUsableLiveCandles(payload: LiveMarketPayload): boolean {
+  return (
+    payload.source.historyCompleteness !== "latest_quote_only" &&
+    payload.candles.length >= 20 &&
+    payload.candles.every((candle) => candle.timeframe === "5m")
+  );
 }
 
 async function readApiError(response: Response): Promise<string> {

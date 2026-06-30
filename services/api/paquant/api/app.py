@@ -12,10 +12,12 @@ from pydantic import BaseModel, Field
 from paquant.agent_runtime.registry import list_trader_profiles
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema
-from paquant.data_layer.providers import YahooGoldFuturesChartProvider
+from paquant.data_layer.providers import (
+    YahooGoldFuturesChartProvider,
+)
 from paquant.data_layer.schemas import Candle
 from paquant.export_fixture import build_demo_fixture, build_knowledge_browser_payload
-from paquant.model_provider.base import ModelProvider
+from paquant.model_provider.base import ModelProvider, ModelProviderError
 from paquant.model_provider.openai_compatible import OpenAICompatibleProvider
 from paquant.model_provider.registry import build_default_provider_registry
 
@@ -81,7 +83,10 @@ def create_app(
 
     @app.get("/api/market/xau/live")
     def get_live_xau_market() -> dict[str, Any]:
-        feed = live_provider.load_candles("XAUUSD", "5m")
+        feed = _load_live_feed_or_error(
+            live_provider,
+            detail="真实行情源暂不可用。PAquant 不会用本地样本 K 线冒充实时价格。",
+        )
         return _live_market_payload(feed)
 
     @app.post("/api/agent-runs", status_code=201)
@@ -91,10 +96,22 @@ def create_app(
             candles = _client_market_candles(request.market)
             data_source = _client_market_source(request.market)
         else:
-            live_feed = live_provider.load_candles("XAUUSD", "5m")
+            live_feed = _load_live_feed_or_error(
+                live_provider,
+                detail=(
+                    "agent run requires visible non-mock 5m candles; "
+                    "live market provider is unavailable"
+                ),
+            )
             candles = live_feed.candles
             data_source = live_feed.source.model_dump(mode="json", by_alias=True)
-        payload = build_demo_fixture(model_provider=provider, candles=candles)
+        try:
+            payload = build_demo_fixture(model_provider=provider, candles=candles)
+        except ModelProviderError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="模型 API 调用失败：请检查网络、代理或模型供应商配置。",
+            ) from exc
         run_id = _persist_workbench_payload(repository, payload)
         return _with_meta(
             payload,
@@ -145,6 +162,13 @@ def _client_market_source(market: dict[str, Any]) -> dict[str, Any]:
     return source
 
 
+def _load_live_feed_or_error(live_provider: Any, *, detail: str) -> Any:
+    try:
+        return live_provider.load_candles("XAUUSD", "5m")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=detail) from exc
+
+
 def _model_provider_payloads() -> list[dict[str, Any]]:
     providers = []
     for provider_id, config in build_default_provider_registry().items():
@@ -179,18 +203,20 @@ def _build_model_provider(
     if not os.environ.get(config.api_key_env):
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"model provider {provider_id} is not configured; "
-                f"set {config.api_key_env}"
-            ),
+            detail=(f"model provider {provider_id} is not configured; set {config.api_key_env}"),
         )
     return OpenAICompatibleProvider(config=config)
 
 
 def _live_market_payload(feed: Any) -> dict[str, Any]:
+    quote = feed.quote.model_dump(mode="json", by_alias=True)
+    if quote.get("bid") is None or quote.get("ask") is None:
+        price = float(quote["price"])
+        quote["bid"] = round(price - 0.35, 2)
+        quote["ask"] = round(price + 0.35, 2)
     return {
         "source": feed.source.model_dump(mode="json", by_alias=True),
-        "quote": feed.quote.model_dump(mode="json", by_alias=True),
+        "quote": quote,
         "candles": [candle.model_dump(mode="json") for candle in feed.candles],
     }
 
@@ -258,6 +284,9 @@ def _profile_to_api(profile: dict[str, Any]) -> dict[str, Any]:
         "riskStyle": profile["risk_style"],
         "toolPermissions": profile["tool_permissions"],
         "knowledgePolicy": profile["knowledge_policy"],
+        "agentFile": profile["agent_file"],
+        "sharedKnowledgeFiles": profile["shared_knowledge_files"],
+        "sharedKnowledgeSummary": profile["shared_knowledge_summary"],
         "recentAction": profile["recent_action"],
         "performance": {
             "equity": performance["equity"],
@@ -353,9 +382,7 @@ def _persist_workbench_payload(repository: AuditRepository, payload: dict[str, A
         )
     trade_row_ids_by_order_id: dict[str, int] = {}
     for trade in payload["trades"]:
-        trade_id = repository.record_trade(
-            order_id=f"{run_id}:{trade['order_id']}", payload=trade
-        )
+        trade_id = repository.record_trade(order_id=f"{run_id}:{trade['order_id']}", payload=trade)
         trade_row_ids_by_order_id[trade["order_id"]] = trade_id
     for snapshot in payload.get("tradeSnapshots", []):
         trade_id = trade_row_ids_by_order_id.get(snapshot["tradeOrderId"])

@@ -58,9 +58,15 @@ class SimulatedOrder(BaseModel):
     filled_entry: float | None = None
 
     @model_validator(mode="after")
-    def validate_stop_limit_trigger(self) -> SimulatedOrder:
-        if self.order_type == OrderType.STOP_LIMIT and self.activation_price is None:
-            raise ValueError("stop-limit orders require activation_price")
+    def validate_stop_order_trigger(self) -> SimulatedOrder:
+        requires_activation = self.order_type in {
+            OrderType.STOP,
+            OrderType.STOP_LIMIT,
+        }
+        if requires_activation and self.activation_price is None:
+            raise ValueError("stop orders require activation_price")
+        if self.order_type == OrderType.STOP and self.activation_price != self.entry:
+            raise ValueError("stop orders require activation_price to match entry")
         return self
 
     @classmethod

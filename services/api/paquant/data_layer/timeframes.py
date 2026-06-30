@@ -60,8 +60,7 @@ def _build_context(
         low=round(low, 2),
         last_close=round(last_close, 2),
         summary=(
-            f"{display_name} {bias} context derived from XAU 5m replay; "
-            f"range {low:.2f}-{high:.2f}."
+            f"{display_name} {bias} context derived from XAU 5m replay; range {low:.2f}-{high:.2f}."
         ),
     )
 

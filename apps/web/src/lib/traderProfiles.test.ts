@@ -13,6 +13,12 @@ const apiProfile: TraderProfile = {
   riskStyle: "moderate",
   toolPermissions: ["find_swings", "draw_trendline", "measure_leg", "count_bars"],
   knowledgePolicy: "retrieve Brooks dossiers",
+  agentFile: ".agents/traders/brooks-generalist.md",
+  sharedKnowledgeFiles: [
+    ".agents/common/price-action-core.md",
+    ".agents/common/risk-control.md"
+  ],
+  sharedKnowledgeSummary: "Shared Price Action Core / Shared Risk Control",
   recentAction: "Reviewed XAU pullback.",
   performance: {
     equity: 10020,
@@ -34,6 +40,7 @@ describe("loadTraderProfiles", () => {
 
     expect(fetcher).toHaveBeenCalledWith("/api/traders");
     expect(result).toHaveLength(1);
+    expect(result[0].agentFile).toBe(".agents/traders/brooks-generalist.md");
     expect(result[0].recentAction).toBe("Reviewed XAU pullback.");
   });
 
@@ -47,11 +54,16 @@ describe("loadTraderProfiles", () => {
     expect(result.map((profile) => profile.id)).toEqual([
       "brooks-generalist",
       "always-in-trend",
+      "second-entry",
       "best-trades-only",
       "trading-range-scalper",
+      "breakout-pullback",
       "wedge-reversal",
-      "breakout-failure"
+      "breakout-failure",
+      "major-reversal",
+      "final-flag"
     ]);
+    expect(result).toHaveLength(10);
     expect(result.find((profile) => profile.id === "wedge-reversal")?.status).toBe("research");
   });
 });

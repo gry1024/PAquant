@@ -29,6 +29,4 @@ class FallbackModelProvider:
                 return provider.generate(request)
             except Exception as exc:
                 self.failures.append(redact_secrets(str(exc), self.known_secrets))
-        raise ModelProviderError(
-            "all model providers failed: " + " | ".join(self.failures)
-        )
+        raise ModelProviderError("all model providers failed: " + " | ".join(self.failures))

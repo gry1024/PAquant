@@ -86,7 +86,7 @@ Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyCo
 
 The public preview uses CloudBase static hosting for the frontend and a CloudBase SCF HTTP access service for the live API:
 
-- Static preview: `https://paquant-groy-env-d5g7okht7dcd202fe.webapps.tcloudbase.com`
+- Static preview: `https://groy-env-d5g7okht7dcd202fe-1401196005.tcloudbaseapp.com/PAquant/`
 - API service: `https://groy-env-d5g7okht7dcd202fe-1401196005.ap-shanghai.app.tcloudbase.com/api`
 - Function: `paquantScfApi`
 
@@ -100,7 +100,7 @@ pnpm --package=@cloudbase/cli dlx tcb fn deploy paquantScfApi `
 
 Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONSHOT_API_KEY` as CloudBase function environment variables. Do not commit those values.
 
-The CloudBase environment currently blocks Yahoo Finance 5-minute chart endpoints with HTTP 429 and cannot download the full ForexSB M5 file within the function timeout. The deployed product therefore uses this split path:
+The frontend is built with Vite `base: "/PAquant/"` and `cloudbaserc.json` deploys static files to `/PAquant/`, so the product does not occupy the CloudBase environment root. The CloudBase environment currently blocks Yahoo Finance 5-minute chart endpoints with HTTP 429 and cannot download the full ForexSB M5 file within the function timeout. The deployed product therefore uses this split path:
 
 - `/api/market/xau/live` returns real XAU spot quote metadata from CloudBase-accessible providers.
 - The browser downloads and parses ForexSB/Dukascopy `XAUUSD5.lb.gz`, then displays the latest 240 XAUUSD M5 candles.
@@ -124,4 +124,4 @@ The CloudBase environment currently blocks Yahoo Finance 5-minute chart endpoint
 - Brooks Generalist trade and no-trade decision paths.
 - Local FastAPI product API for health checks, live market payloads, provider status, and persisted user-started agent runs.
 - TradingView-like desktop web workstation with candlesticks, drawing overlay, bar-by-bar stream controls, visible model API selection, analysis, knowledge refs, simulated orders, journal, replay snapshots, and performance panels.
-- CloudBase static public preview at `https://paquant-groy-env-d5g7okht7dcd202fe.webapps.tcloudbase.com`.
+- CloudBase static public preview at `https://groy-env-d5g7okht7dcd202fe-1401196005.tcloudbaseapp.com/PAquant/`.

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+DEFAULT_AGENTS_DIR = REPO_ROOT / ".agents"
 
 
 class TraderPerformance(BaseModel):
@@ -28,6 +32,9 @@ class TraderProfile(BaseModel):
     risk_style: str
     tool_permissions: list[str]
     knowledge_policy: str
+    agent_file: str
+    shared_knowledge_files: list[str]
+    shared_knowledge_summary: str
     recent_action: str
     performance: TraderPerformance
 
@@ -47,144 +54,184 @@ _COMMON_TOOLS = [
 ]
 
 
-_TRADER_PROFILES = [
-    TraderProfile(
-        id="brooks-generalist",
-        name="Brooks Generalist",
-        persona="Balanced price-action simulator that checks context before setup labels.",
-        status="active",
-        symbol="XAUUSD",
-        timeframe="5m",
-        preferred_setups=[
-            "always-in pullback",
-            "second entry",
-            "failed breakout",
-            "three pushes",
-        ],
-        risk_style="moderate; one unit risk after context and trader equation checks",
-        tool_permissions=_COMMON_TOOLS,
-        knowledge_policy="retrieve concept graph, setup dossiers, and similar failure cases",
-        recent_action="Reviewed XAU 5m pullback thesis and submitted a simulated limit order.",
-        performance=TraderPerformance(
+_PROFILE_ORDER = [
+    "brooks-generalist",
+    "always-in-trend",
+    "second-entry",
+    "best-trades-only",
+    "trading-range-scalper",
+    "breakout-pullback",
+    "wedge-reversal",
+    "breakout-failure",
+    "major-reversal",
+    "final-flag",
+]
+
+_PROFILE_RUNTIME = {
+    "brooks-generalist": {
+        "status": "active",
+        "recent_action": "Reviewed XAU 5m signal-bar plan and submitted a simulated stop order.",
+        "performance": TraderPerformance(
             equity=10_020.0,
             win_rate=1.0,
             max_drawdown=0.0,
             trades=1,
             average_r=2.0,
         ),
-    ),
-    TraderProfile(
-        id="always-in-trend",
-        name="Always-In Trend Trader",
-        persona="Tracks always-in direction, urgency, pullback quality, and trend resumption.",
-        status="standby",
-        symbol="XAUUSD",
-        timeframe="5m",
-        preferred_setups=["always-in pullback", "micro channel", "trend resumption"],
-        risk_style="trend-following; wider stops only after strong context confirmation",
-        tool_permissions=_COMMON_TOOLS,
-        knowledge_policy="prefer trend, channel, always-in, and strong trend playbooks",
-        recent_action="Waiting for a clean always-in long or short transition.",
-        performance=TraderPerformance(
-            equity=10_000.0,
-            win_rate=0.0,
-            max_drawdown=0.0,
-            trades=0,
-            average_r=0.0,
-        ),
-    ),
-    TraderProfile(
-        id="best-trades-only",
-        name="Best-Trades-Only Conservative Trader",
-        persona="Filters aggressively and accepts no-trade decisions when trader equation is thin.",
-        status="standby",
-        symbol="XAUUSD",
-        timeframe="5m",
-        preferred_setups=["high 2 pullback", "low 2 pullback", "major trend reversal"],
-        risk_style="conservative; small position unless probability and reward are clear",
-        tool_permissions=_COMMON_TOOLS,
-        knowledge_policy="retrieve trader equation, signal bar quality, and failure mode cases",
-        recent_action="Rejected marginal pullback because signal quality was mixed.",
-        performance=TraderPerformance(
-            equity=10_000.0,
-            win_rate=0.0,
-            max_drawdown=0.0,
-            trades=0,
-            average_r=0.0,
-        ),
-    ),
-    TraderProfile(
-        id="trading-range-scalper",
-        name="Trading Range Scalper",
-        persona="Treats ranges as uncertainty and favors buy-low/sell-high tests.",
-        status="standby",
-        symbol="XAUUSD",
-        timeframe="5m",
-        preferred_setups=["range fade", "failed breakout", "micro double top or bottom"],
-        risk_style="scalping; fast exits and reduced size near range midline",
-        tool_permissions=_COMMON_TOOLS,
-        knowledge_policy="prefer trading range, failed breakout, and support/resistance cases",
-        recent_action="Monitoring whether the current channel becomes a mature trading range.",
-        performance=TraderPerformance(
-            equity=10_000.0,
-            win_rate=0.0,
-            max_drawdown=0.0,
-            trades=0,
-            average_r=0.0,
-        ),
-    ),
-    TraderProfile(
-        id="wedge-reversal",
-        name="Wedge/Reversal Specialist",
-        persona="Studies three pushes, overshoots, undershoots, momentum loss, and reversal risk.",
-        status="research",
-        symbol="XAUUSD",
-        timeframe="5m",
-        preferred_setups=["wedge reversal", "three pushes", "final flag"],
-        risk_style="reversal; requires clear invalidation and confirmation after exhaustion",
-        tool_permissions=_COMMON_TOOLS,
-        knowledge_policy="prefer wedge, three-push, final flag, and momentum-change cases",
-        recent_action="Tagging three-push candidates but waiting for clearer signal bars.",
-        performance=TraderPerformance(
-            equity=10_000.0,
-            win_rate=0.0,
-            max_drawdown=0.0,
-            trades=0,
-            average_r=0.0,
-        ),
-    ),
-    TraderProfile(
-        id="breakout-failure",
-        name="Breakout and Failed Breakout Trader",
-        persona=(
-            "Evaluates breakout strength, follow-through, trapped traders, "
-            "and failure entries."
-        ),
-        status="research",
-        symbol="XAUUSD",
-        timeframe="5m",
-        preferred_setups=["breakout pullback", "failed breakout", "measured move"],
-        risk_style="event-driven; size depends on breakout follow-through and stop distance",
-        tool_permissions=_COMMON_TOOLS,
-        knowledge_policy="prefer breakout, failure, measured move, and trader trap cases",
-        recent_action="Comparing breakout follow-through against measured move targets.",
-        performance=TraderPerformance(
-            equity=10_000.0,
-            win_rate=0.0,
-            max_drawdown=0.0,
-            trades=0,
-            average_r=0.0,
-        ),
-    ),
-]
+    },
+    "always-in-trend": {
+        "status": "standby",
+        "recent_action": "Waiting for a clean always-in long or short transition.",
+    },
+    "second-entry": {
+        "status": "standby",
+        "recent_action": "Waiting for a clear H2/L2 signal after the first attempt fails.",
+    },
+    "best-trades-only": {
+        "status": "standby",
+        "recent_action": "Rejected marginal pullback because signal quality was mixed.",
+    },
+    "trading-range-scalper": {
+        "status": "standby",
+        "recent_action": "Monitoring whether the current channel becomes a mature trading range.",
+    },
+    "breakout-pullback": {
+        "status": "standby",
+        "recent_action": "Waiting for breakout follow-through before accepting a retest entry.",
+    },
+    "wedge-reversal": {
+        "status": "research",
+        "recent_action": "Tagging three-push candidates but waiting for clearer signal bars.",
+    },
+    "breakout-failure": {
+        "status": "research",
+        "recent_action": "Comparing breakout follow-through against measured move targets.",
+    },
+    "major-reversal": {
+        "status": "research",
+        "recent_action": "Checking whether trend-line break plus failed extreme test is complete.",
+    },
+    "final-flag": {
+        "status": "research",
+        "recent_action": "Watching mature-trend continuation attempts for final-flag failure.",
+    },
+}
 
 
-def list_trader_profiles() -> list[TraderProfile]:
-    return list(_TRADER_PROFILES)
+def list_trader_profiles(agents_dir: Path | None = None) -> list[TraderProfile]:
+    agents_root = agents_dir or DEFAULT_AGENTS_DIR
+    profiles = [
+        _parse_trader_profile(path, agents_root)
+        for path in sorted((agents_root / "traders").glob("*.md"))
+    ]
+    ordered = {profile.id: profile for profile in profiles}
+    known = [ordered[profile_id] for profile_id in _PROFILE_ORDER if profile_id in ordered]
+    extras = [profile for profile in profiles if profile.id not in _PROFILE_ORDER]
+    return [*known, *extras]
 
 
 def get_trader_profile(trader_id: str) -> TraderProfile:
-    for profile in _TRADER_PROFILES:
+    for profile in list_trader_profiles():
         if profile.id == trader_id:
             return profile
     raise KeyError(trader_id)
+
+
+def _parse_trader_profile(path: Path, agents_root: Path) -> TraderProfile:
+    text = path.read_text(encoding="utf-8")
+    trader_id = path.stem
+    strategy_lines = _section_lines(text, "Strategy")
+    runtime = _PROFILE_RUNTIME.get(trader_id, {})
+    return TraderProfile(
+        id=trader_id,
+        name=_markdown_title(text),
+        persona=_first_paragraph(_section_lines(text, "Persona")),
+        status=runtime.get("status", "research"),
+        symbol="XAUUSD",
+        timeframe="5m",
+        preferred_setups=_bullet_items(strategy_lines),
+        risk_style=_prefixed_value(strategy_lines, "Risk style:"),
+        tool_permissions=_COMMON_TOOLS,
+        knowledge_policy=_prefixed_value(strategy_lines, "Knowledge policy:"),
+        agent_file=_agent_relative_path(path, agents_root),
+        shared_knowledge_files=[
+            _agent_relative_path(common_path, agents_root)
+            for common_path in _common_knowledge_files(agents_root)
+        ],
+        shared_knowledge_summary=_shared_knowledge_summary(agents_root),
+        recent_action=runtime.get(
+            "recent_action",
+            "Waiting for a validated setup from agent file.",
+        ),
+        performance=runtime.get("performance", _empty_performance()),
+    )
+
+
+def _common_knowledge_files(agents_root: Path) -> list[Path]:
+    return sorted((agents_root / "common").glob("*.md"))
+
+
+def _shared_knowledge_summary(agents_root: Path) -> str:
+    summaries = []
+    for path in _common_knowledge_files(agents_root):
+        text = path.read_text(encoding="utf-8")
+        summaries.append(_markdown_title(text))
+    return " / ".join(summaries)
+
+
+def _empty_performance() -> TraderPerformance:
+    return TraderPerformance(
+        equity=10_000.0,
+        win_rate=0.0,
+        max_drawdown=0.0,
+        trades=0,
+        average_r=0.0,
+    )
+
+
+def _agent_relative_path(path: Path, agents_root: Path) -> str:
+    return str(Path(".agents") / path.relative_to(agents_root)).replace("\\", "/")
+
+
+def _markdown_title(text: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped.removeprefix("# ").strip()
+    raise ValueError("agent file is missing a level-one title")
+
+
+def _section_lines(text: str, heading: str) -> list[str]:
+    lines: list[str] = []
+    in_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            if in_section:
+                break
+            in_section = stripped.removeprefix("## ").strip().lower() == heading.lower()
+            continue
+        if in_section:
+            lines.append(line)
+    return lines
+
+
+def _first_paragraph(lines: list[str]) -> str:
+    paragraph = [line.strip() for line in lines if line.strip()]
+    return paragraph[0] if paragraph else ""
+
+
+def _bullet_items(lines: list[str]) -> list[str]:
+    return [
+        stripped.removeprefix("- ").strip()
+        for line in lines
+        if (stripped := line.strip()).startswith("- ")
+    ]
+
+
+def _prefixed_value(lines: list[str], prefix: str) -> str:
+    for line in lines:
+        stripped = line.strip()
+        if stripped.lower().startswith(prefix.lower()):
+            return stripped[len(prefix) :].strip()
+    return ""

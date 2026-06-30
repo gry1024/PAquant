@@ -6,7 +6,13 @@ from fastapi.testclient import TestClient
 from paquant.api.app import create_app
 from paquant.data_layer.providers import LiveMarketFeed, LiveMarketQuote, LiveMarketSource
 from paquant.data_layer.sample_data import load_sample_candles
-from paquant.model_provider.base import ModelRequest, ModelResponse, ModelToolCall, ModelUsage
+from paquant.model_provider.base import (
+    ModelProviderError,
+    ModelRequest,
+    ModelResponse,
+    ModelToolCall,
+    ModelUsage,
+)
 
 
 def test_health_endpoint_reports_service_status(tmp_path: Path):
@@ -59,18 +65,27 @@ def test_traders_endpoint_returns_configured_roster(tmp_path: Path):
     assert trader_ids == [
         "brooks-generalist",
         "always-in-trend",
+        "second-entry",
         "best-trades-only",
         "trading-range-scalper",
+        "breakout-pullback",
         "wedge-reversal",
         "breakout-failure",
+        "major-reversal",
+        "final-flag",
     ]
     active = payload["traders"][0]
     assert active["status"] == "active"
     assert active["performance"]["winRate"] == 1.0
     assert active["performance"]["maxDrawdown"] == 0.0
-    assert {"find_swings", "draw_trendline", "measure_leg"} <= set(
-        active["toolPermissions"]
-    )
+    assert {"find_swings", "draw_trendline", "measure_leg"} <= set(active["toolPermissions"])
+    assert active["agentFile"] == ".agents/traders/brooks-generalist.md"
+    assert active["sharedKnowledgeFiles"] == [
+        ".agents/common/price-action-core.md",
+        ".agents/common/risk-control.md",
+    ]
+    assert "Shared Price Action Core" in active["sharedKnowledgeSummary"]
+    assert "Shared Risk Control" in active["sharedKnowledgeSummary"]
 
 
 def test_knowledge_endpoint_returns_browser_contract(tmp_path: Path):
@@ -164,6 +179,11 @@ class FakeRealModelProvider:
         )
 
 
+class FailingModelProvider:
+    def generate(self, request: ModelRequest) -> ModelResponse:
+        raise ModelProviderError("provider unavailable")
+
+
 class FakeLiveProvider:
     def load_candles(self, symbol: str, timeframe: str) -> LiveMarketFeed:
         return LiveMarketFeed(
@@ -184,6 +204,11 @@ class FakeLiveProvider:
             ),
             candles=load_sample_candles(),
         )
+
+
+class FailingLiveProvider:
+    def load_candles(self, symbol: str, timeframe: str) -> LiveMarketFeed:
+        raise ConnectionError("provider unavailable")
 
 
 def test_agent_run_endpoint_uses_non_mock_provider_and_returns_trade_annotations(
@@ -213,6 +238,12 @@ def test_agent_run_endpoint_uses_non_mock_provider_and_returns_trade_annotations
     assert payload["analysis"]["positionSizeSuggestion"] == 1
     assert payload["orders"][0]["quantity"] == 1
     assert payload["orders"][0]["reason"]
+    assert payload["orders"][0]["order_type"] == "stop"
+    assert payload["orders"][0]["activation_price"] == payload["orders"][0]["entry"]
+    assert payload["orders"][0]["execution_plan"]["signal_bar_index"] >= 0
+    assert payload["orders"][0]["execution_plan"]["trigger_price"] == payload["orders"][0]["entry"]
+    assert "信号K线" in payload["orders"][0]["execution_plan"]["signal_bar_pattern"]
+    assert "stop order" in payload["orders"][0]["execution_plan"]["entry_tactic"]
     marker_by_type = {
         marker["marker_type"]: marker
         for marker in payload["chartObjects"]
@@ -221,14 +252,12 @@ def test_agent_run_endpoint_uses_non_mock_provider_and_returns_trade_annotations
     assert {"entry", "stop", "target"} <= set(marker_by_type)
     assert marker_by_type["entry"]["quantity"] == 1
     assert "reason" in marker_by_type["entry"]
-    assert "stop" in marker_by_type["stop"]["label"].lower()
-    assert "target" in marker_by_type["target"]["label"].lower()
+    assert "止损" in marker_by_type["stop"]["label"]
+    assert "止盈" in marker_by_type["target"]["label"]
     assert payload["meta"]["recordCounts"]["analysis_runs"] == 1
 
 
-def test_agent_run_endpoint_accepts_browser_supplied_market_candles(
-    tmp_path: Path, monkeypatch
-):
+def test_agent_run_endpoint_accepts_browser_supplied_market_candles(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     client = TestClient(
         create_app(
@@ -267,15 +296,32 @@ def test_agent_run_endpoint_accepts_browser_supplied_market_candles(
     assert len(payload["candles"]) == 24
     assert payload["analysis"]["modelUsage"]["provider"] == "deepseek"
     marker_types = {
-        obj["marker_type"]
-        for obj in payload["chartObjects"]
-        if obj["kind"] == "trade_marker"
+        obj["marker_type"] for obj in payload["chartObjects"] if obj["kind"] == "trade_marker"
     }
     assert marker_types >= {
         "entry",
         "stop",
         "target",
     }
+
+
+def test_agent_run_returns_chinese_502_when_model_provider_fails(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    client = TestClient(
+        create_app(
+            database_path=tmp_path / "paquant.sqlite3",
+            live_market_provider=FakeLiveProvider(),
+            model_provider_overrides={"deepseek": FailingModelProvider()},
+        )
+    )
+
+    response = client.post(
+        "/api/agent-runs",
+        json={"traderId": "brooks-generalist", "modelProvider": "deepseek"},
+    )
+
+    assert response.status_code == 502
+    assert "模型 API 调用失败" in response.json()["detail"]
 
 
 def test_live_market_endpoint_returns_non_mock_source_metadata(tmp_path: Path):
@@ -294,7 +340,44 @@ def test_live_market_endpoint_returns_non_mock_source_metadata(tmp_path: Path):
     assert payload["source"]["isMock"] is False
     assert payload["source"]["isSpot"] is True
     assert payload["quote"]["price"] == 2338.2
+    assert payload["quote"]["bid"] == 2337.85
+    assert payload["quote"]["ask"] == 2338.55
     assert payload["candles"][0]["symbol"] == "XAUUSD"
+
+
+def test_live_market_endpoint_rejects_local_replay_when_provider_fails(tmp_path: Path):
+    client = TestClient(
+        create_app(
+            database_path=tmp_path / "paquant.sqlite3",
+            live_market_provider=FailingLiveProvider(),
+        )
+    )
+
+    response = client.get("/api/market/xau/live")
+
+    assert response.status_code == 503
+    assert "真实行情源暂不可用" in response.json()["detail"]
+
+
+def test_agent_run_without_visible_market_rejects_local_replay_when_provider_fails(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    client = TestClient(
+        create_app(
+            database_path=tmp_path / "paquant.sqlite3",
+            live_market_provider=FailingLiveProvider(),
+            model_provider_overrides={"deepseek": FakeRealModelProvider()},
+        )
+    )
+
+    response = client.post(
+        "/api/agent-runs",
+        json={"traderId": "brooks-generalist", "modelProvider": "deepseek"},
+    )
+
+    assert response.status_code == 503
+    assert "visible non-mock 5m candles" in response.json()["detail"]
 
 
 def test_agent_run_rejects_mock_provider_for_live_mode(tmp_path: Path):

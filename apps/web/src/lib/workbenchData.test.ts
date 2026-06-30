@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import fixtureData from "../fixtures/paquant-demo.json";
 import {
+  loadForexsbXauUsd5mCandles,
   loadWorkbenchFixture,
   parseForexsbXauUsd5m,
   resolveApiUrl,
@@ -106,6 +107,67 @@ describe("loadWorkbenchFixture", () => {
     expect(result.candles).toHaveLength(30);
     expect(result.candles[0].timestamp).toBe("2026-06-30T00:00:00.000Z");
     expect(result.candles[29].close).toBe(3974.85);
+  });
+
+  test("keeps the browser ForexSB download alive long enough for the public preview", async () => {
+    vi.useFakeTimers();
+    try {
+      let signal: AbortSignal | undefined;
+      const raw = forexsbBuffer(30);
+      const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        signal = init?.signal as AbortSignal | undefined;
+        return {
+          ok: true,
+          arrayBuffer: async () => {
+            await new Promise((resolve) => globalThis.setTimeout(resolve, 10_000));
+            return raw;
+          }
+        };
+      }) as unknown as typeof fetch;
+
+      const candlesPromise = loadForexsbXauUsd5mCandles(fetcher, 30);
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      await expect(candlesPromise).resolves.toHaveLength(30);
+      expect(signal?.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("does not block on browser ForexSB when the live API already has 5m candles", async () => {
+    const livePayload = {
+      source: {
+        id: "local_sample_xauusd_5m_fallback",
+        label: "本地 XAUUSD 5分钟回放样本（实时行情源不可用）",
+        instrumentSymbol: "XAUUSD",
+        instrumentKind: "sample_replay",
+        isSpot: true,
+        isMock: false,
+        latency: "local_replay"
+      },
+      quote: {
+        symbol: "XAUUSD",
+        price: 2338.2,
+        bid: 2337.85,
+        ask: 2338.55,
+        timestamp: "2026-06-30T04:30:00Z",
+        providerSymbol: "XAUUSD"
+      },
+      candles: fixture.candles.slice(0, 24)
+    };
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) !== "/api/market/xau/live") {
+        throw new Error(`unexpected fetch ${String(input)}`);
+      }
+      return { ok: true, json: async () => livePayload };
+    }) as unknown as typeof fetch;
+
+    const result = await loadWorkbenchFixture(fetcher);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.meta?.dataSource?.id).toBe("local_sample_xauusd_5m_fallback");
+    expect(result.candles).toHaveLength(24);
   });
 
   test("does not fall back to committed fixture when live market API is unavailable", async () => {

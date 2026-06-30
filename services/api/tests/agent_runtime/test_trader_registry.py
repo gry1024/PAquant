@@ -8,10 +8,14 @@ def test_trader_registry_contains_required_personas():
     assert [profile.id for profile in profiles] == [
         "brooks-generalist",
         "always-in-trend",
+        "second-entry",
         "best-trades-only",
         "trading-range-scalper",
+        "breakout-pullback",
         "wedge-reversal",
         "breakout-failure",
+        "major-reversal",
+        "final-flag",
     ]
     assert profiles[0].status == "active"
     assert all(profile.symbol == "XAUUSD" for profile in profiles)
@@ -39,3 +43,16 @@ def test_get_trader_profile_returns_stable_profile_and_rejects_unknown_id():
 
     with pytest.raises(KeyError):
         get_trader_profile("unknown-trader")
+
+
+def test_new_brooks_setup_traders_are_registered_from_agent_files():
+    profiles = {profile.id: profile for profile in list_trader_profiles()}
+
+    assert profiles["second-entry"].agent_file == ".agents/traders/second-entry.md"
+    assert profiles["breakout-pullback"].agent_file == ".agents/traders/breakout-pullback.md"
+    assert profiles["major-reversal"].agent_file == ".agents/traders/major-reversal.md"
+    assert profiles["final-flag"].agent_file == ".agents/traders/final-flag.md"
+    second_entry_setups = " ".join(profiles["second-entry"].preferred_setups)
+    assert "High 2" in second_entry_setups
+    assert "Low 2" in second_entry_setups
+    assert "突破回调" in " ".join(profiles["breakout-pullback"].preferred_setups)

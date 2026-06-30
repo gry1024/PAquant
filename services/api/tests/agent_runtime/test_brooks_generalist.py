@@ -35,10 +35,20 @@ def test_brooks_generalist_returns_structured_auditable_decision():
     }
     assert any(action.chart_object_id for action in decision.action_stream)
     assert all(
-        "chain-of-thought" not in action.observation.lower()
-        for action in decision.action_stream
+        "chain-of-thought" not in action.observation.lower() for action in decision.action_stream
     )
     assert "chain-of-thought" not in decision.reasoning_summary.lower()
+    assert decision.proposed_order is not None
+    assert decision.proposed_order.order_type == "stop"
+    assert decision.proposed_order.activation_price == decision.proposed_order.entry
+    assert decision.proposed_order.execution_plan.signal_bar_index >= 0
+    assert decision.proposed_order.execution_plan.trigger_price == decision.proposed_order.entry
+    assert "信号K线" in decision.proposed_order.execution_plan.signal_bar_pattern
+    assert "stop order" in decision.proposed_order.execution_plan.entry_tactic
+    assert any(
+        decision.proposed_order.execution_plan.trigger_condition in level.evidence
+        for level in decision.key_levels
+    )
 
 
 def test_brooks_generalist_can_return_no_trade_for_neutral_context():
@@ -273,4 +283,11 @@ def test_brooks_generalist_order_prices_follow_candle_data_not_constants():
     )
     assert shifted_decision.proposed_order.target == pytest.approx(
         base_decision.proposed_order.target + 100
+    )
+    assert shifted_decision.proposed_order.activation_price == pytest.approx(
+        base_decision.proposed_order.activation_price + 100
+    )
+    assert (
+        shifted_decision.proposed_order.execution_plan.signal_bar_index
+        == base_decision.proposed_order.execution_plan.signal_bar_index
     )

@@ -198,16 +198,14 @@ class SimulationEngine:
             and order_risk > self.risk_settings.max_risk_per_order
         ):
             raise ValueError(
-                f"order risk {order_risk} exceeds limit "
-                f"{self.risk_settings.max_risk_per_order}"
+                f"order risk {order_risk} exceeds limit {self.risk_settings.max_risk_per_order}"
             )
         if (
             self.risk_settings.max_quantity is not None
             and order.quantity > self.risk_settings.max_quantity
         ):
             raise ValueError(
-                f"order quantity {order.quantity} exceeds limit "
-                f"{self.risk_settings.max_quantity}"
+                f"order quantity {order.quantity} exceeds limit {self.risk_settings.max_quantity}"
             )
 
     def _update_excursion(self, order: SimulatedOrder, candle: Candle) -> None:
@@ -224,8 +222,7 @@ class SimulationEngine:
 
     def _entry_fill_price(self, order: SimulatedOrder) -> float:
         adjustment = (
-            self.execution_settings.spread_points / 2
-            + self.execution_settings.slippage_points
+            self.execution_settings.spread_points / 2 + self.execution_settings.slippage_points
         )
         if order.side == OrderSide.BUY:
             return round(order.entry + adjustment, 10)
@@ -233,8 +230,7 @@ class SimulationEngine:
 
     def _exit_fill_price(self, order: SimulatedOrder, exit_price: float) -> float:
         adjustment = (
-            self.execution_settings.spread_points / 2
-            + self.execution_settings.slippage_points
+            self.execution_settings.spread_points / 2 + self.execution_settings.slippage_points
         )
         if order.side == OrderSide.BUY:
             return round(exit_price - adjustment, 10)
@@ -255,9 +251,7 @@ class SimulationEngine:
             grouped.setdefault(trade.setup_name, []).append(trade)
         return grouped
 
-    def _setup_performance(
-        self, setup_name: str, trades: list[SimulatedTrade]
-    ) -> SetupPerformance:
+    def _setup_performance(self, setup_name: str, trades: list[SimulatedTrade]) -> SetupPerformance:
         wins = sum(1 for trade in trades if trade.pnl > 0)
         losses = sum(1 for trade in trades if trade.pnl <= 0)
         total_pnl = sum(trade.pnl for trade in trades)

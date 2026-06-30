@@ -16,9 +16,7 @@ class FakeTransport:
         payload: dict,
         timeout: float,
     ) -> dict:
-        self.calls.append(
-            {"url": url, "headers": headers, "payload": payload, "timeout": timeout}
-        )
+        self.calls.append({"url": url, "headers": headers, "payload": payload, "timeout": timeout})
         return {
             "choices": [
                 {

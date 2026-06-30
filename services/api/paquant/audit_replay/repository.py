@@ -233,9 +233,7 @@ class AuditRepository:
         )
         self.connection.commit()
 
-    def record_order(
-        self, *, order_id: str, analysis_run_id: int, payload: dict[str, Any]
-    ) -> None:
+    def record_order(self, *, order_id: str, analysis_run_id: int, payload: dict[str, Any]) -> None:
         self.connection.execute(
             "INSERT INTO orders (id, analysis_run_id, payload_json) VALUES (?, ?, ?)",
             (order_id, analysis_run_id, json.dumps(payload, ensure_ascii=False)),
@@ -299,9 +297,7 @@ class AuditRepository:
         self.connection.commit()
         return int(cursor.lastrowid)
 
-    def upsert_trader_profile(
-        self, *, profile_id: str, name: str, payload: dict[str, Any]
-    ) -> None:
+    def upsert_trader_profile(self, *, profile_id: str, name: str, payload: dict[str, Any]) -> None:
         self.connection.execute(
             """
             INSERT INTO trader_profiles (id, name, payload_json)

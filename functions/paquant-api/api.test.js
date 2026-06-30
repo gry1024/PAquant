@@ -256,7 +256,14 @@ describe("paquant CloudBase HTTP API", () => {
       ["entry", "stop", "target"]
     );
     assert.equal(payload.orders[0].quantity, 1);
-    assert.match(payload.orders[0].reason, /Real DeepSeek API returned tool calls/);
+    assert.equal(payload.orders[0].order_type, "stop");
+    assert.equal(payload.orders[0].activation_price, payload.orders[0].entry);
+    assert.equal(typeof payload.orders[0].execution_plan.signal_bar_index, "number");
+    assert.match(payload.orders[0].execution_plan.signal_bar_time, /T/);
+    assert.match(payload.orders[0].execution_plan.signal_bar_pattern, /信号K线/);
+    assert.equal(payload.orders[0].execution_plan.trigger_price, payload.orders[0].entry);
+    assert.match(payload.orders[0].execution_plan.trigger_condition, /突破|跌破/);
+    assert.match(payload.orders[0].reason, /DeepSeek 模型 API 已返回工具调用/);
   });
 
   test("agent run rejects browser-loaded candles that are mock or too short", async () => {
@@ -300,7 +307,7 @@ describe("paquant CloudBase HTTP API", () => {
             name: "draw_trendline",
             arguments: JSON.stringify({
               id: "model-live-trendline",
-              label: "Model live trend line",
+              label: "模型实时趋势线",
               start: { time_index: 0, price: 2335 },
               end: { time_index: 4, price: 2341 }
             })
@@ -345,13 +352,60 @@ describe("paquant CloudBase HTTP API", () => {
       .map((object) => object.marker_type);
     assert.deepEqual(markerTypes, ["entry", "stop", "target"]);
     assert.equal(payload.orders[0].quantity, 1);
-    assert.match(payload.orders[0].reason, /Real DeepSeek API returned tool calls/);
+    assert.equal(payload.orders[0].order_type, "stop");
+    assert.equal(payload.orders[0].activation_price, payload.orders[0].entry);
+    assert.match(payload.orders[0].execution_plan.entry_tactic, /stop order|停止单|突破|跌破/i);
+    assert.match(payload.orders[0].reason, /DeepSeek 模型 API 已返回工具调用/);
+    assert.match(payload.chartObjects.find((object) => object.id === "entry-marker").reason, /入场标记/);
+  });
+
+  test("agent run does not expose English model summary to the Chinese UI", async () => {
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    const payload = await createAgentRun({
+      traderId: "brooks-generalist",
+      modelProvider: "deepseek",
+      fetchImpl: fakeFetch((url) => {
+        if (String(url).includes("deepseek")) {
+          return modelResponse(
+            [
+              {
+                id: "draw",
+                function: {
+                  name: "draw_trendline",
+                  arguments: JSON.stringify({
+                    id: "model-live-trendline",
+                    label: "模型实时趋势线",
+                    start: { time_index: 0, price: 2335 },
+                    end: { time_index: 23, price: 2341 }
+                  })
+                }
+              },
+              {
+                id: "measure",
+                function: {
+                  name: "measure_leg",
+                  arguments: JSON.stringify({
+                    start: { time_index: 0, price: 2337 },
+                    end: { time_index: 23, price: 2341 }
+                  })
+                }
+              }
+            ],
+            "Let me start by analyzing the price action structure."
+          );
+        }
+        return null;
+      })
+    });
+
+    assert.match(payload.analysis.reasoningSummary, /模型|结构|风险|工具/);
+    assert.doesNotMatch(payload.analysis.reasoningSummary, /Let me start|price action/i);
   });
 });
 
-function modelResponse(toolCalls) {
+function modelResponse(toolCalls, content = "模型推理摘要。") {
   return {
-    choices: [{ message: { content: "Model reasoning summary.", tool_calls: toolCalls } }],
+    choices: [{ message: { content, tool_calls: toolCalls } }],
     usage: { prompt_tokens: 100, completion_tokens: 20 }
   };
 }

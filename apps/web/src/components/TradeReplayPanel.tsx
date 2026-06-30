@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import { formatReplayStage, translateText } from "../lib/displayText";
 import type { TradeReplayStep, TradeSnapshot } from "../lib/workbenchTypes";
 
 interface TradeReplayPanelProps {
@@ -13,7 +14,7 @@ export function TradeReplayPanel({ steps, snapshots }: TradeReplayPanelProps) {
     <section className="data-panel replay-panel">
       <div className="panel-heading">
         <History size={16} />
-        Trade replay
+        交易复盘
       </div>
       <ol className="replay-timeline">
         {steps.map((step) => {
@@ -27,15 +28,15 @@ export function TradeReplayPanel({ steps, snapshots }: TradeReplayPanelProps) {
                 })}
               </time>
               <div>
-                <strong>{step.title}</strong>
-                <span>{step.narrative}</span>
+                <strong>{formatReplayStage(step)}</strong>
+                <span>{translateText(step.narrative)}</span>
                 <em>
-                  bar {step.barIndex} | {step.outcome} | {step.chartObjectIds.length} refs
+                  K线 {step.barIndex} | {translateText(step.outcome)} | {step.chartObjectIds.length} 个引用
                 </em>
                 {snapshot ? (
                   <span className="snapshot-line">
-                    Snapshot {snapshot.candleWindow.startIndex}-{snapshot.candleWindow.endIndex} |{" "}
-                    {snapshot.candles.length} bars | {snapshot.chartObjects.length} objects
+                    快照 {snapshot.candleWindow.startIndex}-{snapshot.candleWindow.endIndex} |{" "}
+                    {snapshot.candles.length} 根K线 | {snapshot.chartObjects.length} 个对象
                   </span>
                 ) : null}
               </div>

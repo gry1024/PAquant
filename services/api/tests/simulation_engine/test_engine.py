@@ -107,6 +107,7 @@ def test_buy_stop_order_fills_only_after_candle_crosses_entry():
         timeframe="5m",
         side=OrderSide.BUY,
         order_type=OrderType.STOP,
+        activation_price=2320,
         entry=2320,
         stop=2315,
         target=2330,

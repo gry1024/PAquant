@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { projectToOverlay, toChartCandles } from "./chartTransforms";
+import { projectToOverlay, toNativeChartCandles } from "./chartTransforms";
 import type { Candle } from "./workbenchTypes";
 
 const candles: Candle[] = [
@@ -32,12 +32,15 @@ const candles: Candle[] = [
 ];
 
 describe("chart transforms", () => {
-  test("converts backend candles to lightweight-charts data", () => {
-    expect(toChartCandles(candles)[0]).toMatchObject({
+  test("normalizes backend candles for the native chart pipeline", () => {
+    expect(toNativeChartCandles(candles)[0]).toMatchObject({
+      time: Date.parse("2026-06-30T00:00:00Z"),
+      timestamp: "2026-06-30T00:00:00Z",
       open: 2300,
       high: 2310,
       low: 2290,
-      close: 2305
+      close: 2305,
+      volume: 10
     });
   });
 

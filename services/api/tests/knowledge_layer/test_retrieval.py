@@ -7,7 +7,7 @@ def test_retrieval_returns_ranked_source_linked_references():
 
     references = retrieve_relevant_knowledge(
         artifact,
-        query="three push wedge channel overshoot trader equation",
+        query="three push wedge 楔形 三推 channel overshoot trader equation",
         limit=4,
     )
 
@@ -20,4 +20,22 @@ def test_retrieval_returns_ranked_source_linked_references():
         "setup_dossier",
         "case_card",
     }
-    assert any("wedge" in reference.title.lower() for reference in references)
+    assert any(
+        reference.key in {"wedge", "wedge_reversal", "three_push_channel_overshoot"}
+        or "楔形" in reference.title
+        for reference in references
+    )
+
+
+def test_retrieval_supports_chinese_price_action_terms():
+    artifact = compile_core_knowledge()
+
+    references = retrieve_relevant_knowledge(
+        artifact,
+        query="楔形 三推 过冲 交易员方程",
+        limit=5,
+    )
+
+    assert references
+    assert any(reference.key in {"wedge", "wedge_reversal"} for reference in references)
+    assert any("三推" in reference.title or "三推" in reference.summary for reference in references)

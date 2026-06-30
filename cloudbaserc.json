@@ -4,7 +4,7 @@
   "framework": "static",
   "frontendRoot": "apps/web",
   "buildPath": "dist",
-  "deployPath": "/",
+  "deployPath": "/PAquant/",
   "functionRoot": "functions",
   "functions": [
     {

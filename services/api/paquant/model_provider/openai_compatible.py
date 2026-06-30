@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 import urllib.request
 from typing import Protocol
 
@@ -42,7 +43,7 @@ class UrllibJsonTransport:
             headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _urlopen_with_local_proxy_fallback(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
 
@@ -88,9 +89,7 @@ class OpenAICompatibleProvider:
                 timeout=self.config.timeout_seconds,
             )
         except Exception as exc:
-            raise ModelProviderError(
-                redact_secrets(str(exc), [credential])
-            ) from exc
+            raise ModelProviderError(redact_secrets(str(exc), [credential])) from exc
 
         text = _extract_text(raw)
         input_tokens = int(raw.get("usage", {}).get("prompt_tokens", 0))
@@ -119,6 +118,37 @@ def redact_secrets(text: str, secrets: list[str]) -> str:
         if secret:
             redacted = redacted.replace(secret, "[REDACTED]")
     return redacted
+
+
+def _urlopen_with_local_proxy_fallback(
+    request: urllib.request.Request,
+    *,
+    timeout: float,
+):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.URLError:
+        if not _uses_local_proxy_env():
+            raise
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        return opener.open(_clone_request(request), timeout=timeout)
+
+
+def _uses_local_proxy_env() -> bool:
+    for key in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy"):
+        value = os.environ.get(key, "")
+        if "127.0.0.1" in value or "localhost" in value:
+            return True
+    return False
+
+
+def _clone_request(request: urllib.request.Request) -> urllib.request.Request:
+    return urllib.request.Request(
+        request.full_url,
+        data=request.data,
+        headers=dict(request.header_items()),
+        method=request.get_method(),
+    )
 
 
 def _versioned_prompt(request: ModelRequest) -> str:

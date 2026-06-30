@@ -48,8 +48,7 @@ def test_parse_ohlcv_csv_sorts_and_normalizes_candles():
 def test_parse_ohlcv_csv_rejects_unsupported_timeframe():
     with pytest.raises(ValueError):
         parse_ohlcv_csv(
-            "timestamp,open,high,low,close,volume\n"
-            "2026-06-30T00:00:00Z,2308,2311,2307,2310,100\n",
+            "timestamp,open,high,low,close,volume\n2026-06-30T00:00:00Z,2308,2311,2307,2310,100\n",
             symbol="XAUUSD",
             timeframe="1m",
         )
@@ -57,8 +56,7 @@ def test_parse_ohlcv_csv_rejects_unsupported_timeframe():
 
 def test_in_memory_provider_returns_requested_xau_5m_data():
     candles = parse_ohlcv_csv(
-        "timestamp,open,high,low,close,volume\n"
-        "2026-06-30T00:00:00Z,2308,2311,2307,2310,100\n",
+        "timestamp,open,high,low,close,volume\n2026-06-30T00:00:00Z,2308,2311,2307,2310,100\n",
         symbol="XAU/USD",
     )
     provider = InMemoryHistoricalDataProvider(candles)
@@ -95,8 +93,7 @@ def test_remote_csv_provider_downloads_normalizes_and_caches_xau_data(tmp_path):
 def test_remote_csv_provider_uses_cache_without_second_download(tmp_path):
     cache_path = tmp_path / "xau-5m.csv"
     cache_path.write_text(
-        "timestamp,open,high,low,close,volume\n"
-        "2026-06-30T00:00:00Z,2308,2311,2307,2310,100\n",
+        "timestamp,open,high,low,close,volume\n2026-06-30T00:00:00Z,2308,2311,2307,2310,100\n",
         encoding="utf-8",
     )
     transport = FakeTextTransport("should not be used")
@@ -167,3 +164,9 @@ def test_yahoo_gold_futures_provider_parses_live_5m_chart_without_spot_claim():
     assert feed.source.is_mock is False
     assert feed.candles[-1].close == 2338.2
     assert feed.quote.price == 2338.2
+
+
+def test_yahoo_gold_futures_provider_default_timeout_is_ui_bounded():
+    provider = YahooGoldFuturesChartProvider()
+
+    assert provider.timeout_seconds <= 6

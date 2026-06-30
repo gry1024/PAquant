@@ -102,9 +102,9 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
             "orderId": order.id,
             "outcome": "pending",
             "narrative": (
-                f"Limit {order.side.value} plan used {risk_points:.2f} points "
+                f"{order.order_type.value} {order.side.value} plan used {risk_points:.2f} points "
                 f"of risk and a {reward_points / risk_points:.1f}R target while "
-                "the pullback held beyond the invalidation price."
+                "waiting for the signal bar trigger instead of filling before confirmation."
             ),
         },
         {
@@ -116,7 +116,7 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
             "chartObjectIds": ["entry-marker"],
             "orderId": order.id,
             "outcome": "filled",
-            "narrative": "Simulated limit order filled inside the pullback zone.",
+            "narrative": "Simulated stop order filled only after the signal bar trigger fired.",
         },
         {
             "stage": "outcome",
@@ -146,6 +146,25 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
                 "aligned; future invalidation remains a break below the prior swing."
             ),
         },
+    ]
+
+
+def _open_order_replay_payload(
+    candles, order: SimulatedOrder, signal_bar_index: int
+) -> list[dict[str, Any]]:
+    bar_index = min(signal_bar_index, len(candles) - 1)
+    return [
+        {
+            "stage": "plan",
+            "snapshotId": _snapshot_id("plan"),
+            "title": "Plan",
+            "time": candles[bar_index].timestamp.isoformat(),
+            "barIndex": bar_index,
+            "chartObjectIds": ["entry-marker", "stop-marker", "target-marker"],
+            "orderId": order.id,
+            "outcome": "submitted",
+            "narrative": order.reason,
+        }
     ]
 
 
@@ -201,6 +220,16 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
             }
             for source in knowledge.sources
         ],
+        "chapterMap": [
+            {
+                "sourceId": chapter.source_id,
+                "part": chapter.part,
+                "title": chapter.title,
+                "summary": chapter.summary,
+                "conceptKeys": chapter.concept_keys,
+            }
+            for chapter in knowledge.chapter_map
+        ],
         "concepts": [
             {
                 "key": concept.key,
@@ -210,6 +239,14 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
                 "questions": concept.questions,
             }
             for concept in knowledge.concepts
+        ],
+        "conceptEdges": [
+            {
+                "source": edge.source,
+                "target": edge.target,
+                "relation": edge.relation,
+            }
+            for edge in knowledge.concept_edges
         ],
         "setupDossiers": [
             {
@@ -238,6 +275,7 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
                 "traderThinking": case.trader_thinking,
                 "expectedFollowThrough": case.expected_follow_through,
                 "failureScenario": case.failure_scenario,
+                "diagram": case.diagram.model_dump(mode="json"),
             }
             for case in knowledge.case_cards
         ],
@@ -252,31 +290,77 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
             }
             for playbook in knowledge.reasoning_playbooks
         ],
+        "glossary": [
+            {
+                "english": term.english,
+                "chinese": term.chinese,
+                "abbreviation": term.abbreviation,
+                "definition": term.definition,
+                "sourceRefs": term.source_refs,
+            }
+            for term in knowledge.glossary
+        ],
     }
+
+
+def _journal_payload(
+    candles: list[Candle], order: SimulatedOrder, trade, signal_bar_index: int
+) -> list[dict[str, Any]]:
+    signal_bar_index = min(signal_bar_index, len(candles) - 1)
+    entries = [
+        {
+            "time": candles[0].timestamp.isoformat(),
+            "event": "计划已生成",
+            "text": (
+                "布鲁克斯通用交易员生成了信号 K 线 stop order 计划，"
+                f"订单类型 {order.order_type.value}，入场 {order.entry:.2f}。"
+            ),
+        }
+    ]
+    if trade is None:
+        entries.append(
+            {
+                "time": candles[signal_bar_index].timestamp.isoformat(),
+                "event": "订单已提交",
+                "text": "模拟订单等待信号 K 线触发，尚未假定未来成交结果。",
+            }
+        )
+        return entries
+
+    entries.append(
+        {
+            "time": candles[-1].timestamp.isoformat(),
+            "event": "止盈达成" if trade.outcome == "target" else "交易结束",
+            "text": f"模拟交易结果为 {trade.r_multiple:.1f}R。",
+        }
+    )
+    return entries
 
 
 def build_demo_fixture(
     model_provider: ModelProvider | None = None,
     candles: list[Candle] | None = None,
 ) -> dict[str, Any]:
-    candles = candles or load_sample_candles()
+    source_candles = candles or load_sample_candles()
+    analysis_candles = source_candles[:18] if candles is None else source_candles
     knowledge = compile_core_knowledge()
     decision = BrooksGeneralistTrader(provider=model_provider).analyze(
-        candles=candles, knowledge=knowledge, chart_objects=[]
+        candles=analysis_candles, knowledge=knowledge, chart_objects=[]
     )
     if decision.proposed_order is None:
         raise ValueError("demo fixture expects a tradable Brooks setup")
     proposed_order = decision.proposed_order
     trade_reason = (
-        "Pullback held above the always-in trend line; trader's equation offered "
-        f"{abs(proposed_order.entry - proposed_order.stop):.2f} points risk for "
-        f"{abs(proposed_order.target - proposed_order.entry):.2f} points reward."
+        f"{proposed_order.execution_plan.trigger_condition}；交易员方程给出 "
+        f"{abs(proposed_order.entry - proposed_order.stop):.2f} 点风险，"
+        f"{abs(proposed_order.target - proposed_order.entry):.2f} 点目标回报。"
     )
+    signal_bar_index = proposed_order.execution_plan.signal_bar_index
     chart_objects = [
         *decision.chart_objects,
         MeasuredMove(
             id="mm-target",
-            label="Measured move target",
+            label="等距测量目标",
             start=AnchorPoint(time_index=4, price=proposed_order.entry),
             end=AnchorPoint(time_index=18, price=proposed_order.target),
             projected_from=AnchorPoint(
@@ -284,46 +368,54 @@ def build_demo_fixture(
                 price=round((proposed_order.entry + proposed_order.target) / 2, 2),
             ),
             target_price=round(
-                proposed_order.target
-                + abs(proposed_order.target - proposed_order.entry) / 2,
+                proposed_order.target + abs(proposed_order.target - proposed_order.entry) / 2,
                 2,
             ),
         ),
         ThreePush(
             id="three-push",
-            label="Three pushes within channel",
+            label="通道内三推",
             pushes=[
-                AnchorPoint(time_index=8, price=candles[min(8, len(candles) - 1)].high),
-                AnchorPoint(time_index=17, price=candles[min(17, len(candles) - 1)].high),
-                AnchorPoint(time_index=29, price=candles[min(29, len(candles) - 1)].high),
+                AnchorPoint(
+                    time_index=8,
+                    price=source_candles[min(8, len(source_candles) - 1)].high,
+                ),
+                AnchorPoint(
+                    time_index=17,
+                    price=source_candles[min(17, len(source_candles) - 1)].high,
+                ),
+                AnchorPoint(
+                    time_index=29,
+                    price=source_candles[min(29, len(source_candles) - 1)].high,
+                ),
             ],
         ),
         TradeMarker(
             id="entry-marker",
-            label=f"Entry {proposed_order.entry:.2f} | Size {proposed_order.quantity:g}",
-            time_index=12,
+            label=f"入场 {proposed_order.entry:.2f} | 仓位 {proposed_order.quantity:g}",
+            time_index=signal_bar_index,
             price=proposed_order.entry,
             marker_type="entry",
             quantity=proposed_order.quantity,
-            reason=trade_reason,
+            reason=f"入场标记：{trade_reason}",
         ),
         TradeMarker(
             id="stop-marker",
-            label=f"Stop {proposed_order.stop:.2f} | Size {proposed_order.quantity:g}",
-            time_index=12,
+            label=f"止损 {proposed_order.stop:.2f} | 仓位 {proposed_order.quantity:g}",
+            time_index=signal_bar_index,
             price=proposed_order.stop,
             marker_type="stop",
             quantity=proposed_order.quantity,
-            reason="Stop is below the pullback invalidation swing.",
+            reason="止损位于信号 K 线另一侧，代表本笔 stop order 的失效价。",
         ),
         TradeMarker(
             id="target-marker",
-            label=f"Target {proposed_order.target:.2f} | Size {proposed_order.quantity:g}",
-            time_index=17,
+            label=f"止盈 {proposed_order.target:.2f} | 仓位 {proposed_order.quantity:g}",
+            time_index=min(len(source_candles) - 1, signal_bar_index + 5),
             price=proposed_order.target,
             marker_type="target",
             quantity=proposed_order.quantity,
-            reason="Target marks the 2R measured reward from the pullback entry.",
+            reason="止盈标记表示从信号 K 线 stop 入场价测算出的 2R 目标。",
         ),
     ]
     order = SimulatedOrder(
@@ -332,6 +424,7 @@ def build_demo_fixture(
         timeframe="5m",
         side=OrderSide(proposed_order.side),
         order_type=OrderType(proposed_order.order_type),
+        activation_price=proposed_order.activation_price,
         entry=proposed_order.entry,
         stop=proposed_order.stop,
         target=proposed_order.target,
@@ -341,42 +434,39 @@ def build_demo_fixture(
     )
     engine = SimulationEngine(starting_equity=10_000)
     engine.submit_order(order)
-    for candle in candles:
+    for candle in source_candles[signal_bar_index:]:
         engine.on_candle(candle)
-    trade = engine.trades[0]
+    trade = engine.trades[0] if engine.trades else None
 
     chart_object_payloads = [serialize_chart_object(obj) for obj in chart_objects]
-    replay_steps = _trade_replay_payload(candles, order, trade)
+    replay_steps = (
+        _trade_replay_payload(source_candles, order, trade)
+        if trade is not None
+        else _open_order_replay_payload(source_candles, order, signal_bar_index)
+    )
+    order_payload = order.model_dump(mode="json")
+    order_payload["execution_plan"] = proposed_order.execution_plan.model_dump(mode="json")
 
     return {
-        "candles": [candle.model_dump(mode="json") for candle in candles],
+        "candles": [candle.model_dump(mode="json") for candle in source_candles],
         "higherTimeframeContext": [
             context.model_dump(mode="json")
-            for context in build_higher_timeframe_context(candles)
+            for context in build_higher_timeframe_context(source_candles)
         ],
         "agentActions": [_action_payload(action) for action in decision.action_stream],
         "chartObjects": chart_object_payloads,
         "analysis": _analysis_payload(decision),
-        "orders": [order.model_dump(mode="json")],
-        "trades": [trade.model_dump(mode="json") for trade in engine.trades],
-        "tradeSnapshots": _trade_snapshots_payload(
-            candles, chart_object_payloads, replay_steps, order
+        "orders": [order_payload],
+        "trades": [closed_trade.model_dump(mode="json") for closed_trade in engine.trades],
+        "tradeSnapshots": (
+            _trade_snapshots_payload(source_candles, chart_object_payloads, replay_steps, order)
+            if trade is not None
+            else []
         ),
         "tradeReplay": replay_steps,
         "equityCurve": engine.equity_curve,
         "performanceSummary": engine.performance_summary().model_dump(mode="json"),
-        "journal": [
-            {
-                "time": candles[0].timestamp.isoformat(),
-                "event": "Plan created",
-                "text": "Brooks Generalist identified a pullback in an always-in long context.",
-            },
-            {
-                "time": candles[17].timestamp.isoformat(),
-                "event": "Target reached",
-                "text": "Simulated target was reached for a 2R outcome.",
-            },
-        ],
+        "journal": _journal_payload(source_candles, order, trade, signal_bar_index),
         "knowledge": build_knowledge_browser_payload(),
     }
 

@@ -386,9 +386,10 @@ async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl
   const analysisText = responses.map((response) => response.text).filter(Boolean).join(" ");
   const usage = mergeUsage(modelProvider, config.model, responses, config);
   const tradeReason =
-    `Real ${config.name} API returned tool calls; PAquant executed drawing and measurement tools. ` +
-    `The simulated ${order.side} order uses ${round2(Math.abs(order.entry - order.stop))} points risk and ` +
-    `${round2(Math.abs(order.target - order.entry))} points reward.`;
+    `${config.name} 模型 API 已返回工具调用，PAquant 已执行绘图和测量工具。` +
+    `${describeExecutionPlan(order)}` +
+    `本笔模拟${formatOrderSide(order.side)}订单使用 ${round2(Math.abs(order.entry - order.stop))} 点风险，` +
+    `目标回报 ${round2(Math.abs(order.target - order.entry))} 点。`;
 
   return {
     meta: {
@@ -411,37 +412,41 @@ async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl
       traderId,
       marketContext:
         bias === "long"
-          ? "Live XAU 5m futures proxy is trading above the session open; pullbacks are evaluated in an always-in long context."
-          : "Live XAU 5m futures proxy is trading below the session open; rallies are evaluated in an always-in short context.",
+          ? "实时 XAU 5分钟期货代理行情位于本轮开盘价上方，回调按始终在场多头背景评估。"
+          : "实时 XAU 5分钟期货代理行情位于本轮开盘价下方，反弹按始终在场空头背景评估。",
       alwaysInBias: bias,
-      trendStrength: "live model-assisted context; verify follow-through before adding risk",
-      tradingRangeState: "not assumed; model drawing and measurement evidence is shown in the action stream",
+      trendStrength: "实时模型辅助判断；追加风险前必须确认后续跟进力度",
+      tradingRangeState: "不预设交易区间；以模型绘图和测量证据作为行动流依据",
       keyLevels: [
-        { label: "session low", price: round2(low), evidence: "Lowest live 5m candle" },
-        { label: "session high", price: round2(high), evidence: "Highest live 5m candle" },
+        { label: "本轮低点", price: round2(low), evidence: "实时5分钟K线最低点" },
+        { label: "本轮高点", price: round2(high), evidence: "实时5分钟K线最高点" },
         {
-          label: "model order entry",
+          label: "模型下单入场价",
           price: order.entry,
-          evidence: "Entry is derived from live visible pullback structure"
+          evidence: order.execution_plan.trigger_condition
         }
       ],
       setupCandidate: order.setup_name,
-      invalidation: `A break through ${order.stop.toFixed(2)} invalidates the live simulated trade thesis.`,
-      entryType: `limit ${order.side}`,
+      invalidation: `跌破或突破 ${order.stop.toFixed(2)} 将使本笔实时模拟交易假设失效。`,
+      entryType: order.execution_plan.entry_tactic,
       stop: order.stop,
       target: order.target,
       positionSizeSuggestion: order.quantity,
       noTradeReason: null,
       confidence: 0.61,
-      reasoningSummary:
-        analysisText ||
-        "Model API returned required tool calls; PAquant executed them before placing the simulated order.",
+      reasoningSummary: visibleChineseReasoningSummary({
+        analysisText,
+        modelName: config.name,
+        order,
+        bias,
+        toolNames: drawingResult.actions.map((action) => action.tool)
+      }),
       knowledgeRefs: refs,
       evidenceTrail: [
-        "Live market data loaded from a non-mock provider.",
-        `Model API: ${modelProvider} / ${config.model}.`,
-        `Executed tools: ${drawingResult.actions.map((action) => action.tool).join(", ")}.`,
-        "Entry, stop, target, quantity, and reason are serialized as chart trade markers."
+        "实时行情数据来自非 mock provider。",
+        `模型 API：${modelProvider} / ${config.model}。`,
+        `已执行工具：${drawingResult.actions.map((action) => action.tool).join("、")}。`,
+        "入场、止损、止盈、仓位和交易理由已序列化为图表交易标注。"
       ],
       modelUsage: usage
     },
@@ -452,12 +457,12 @@ async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl
       {
         stage: "plan",
         snapshotId: "snapshot-live-plan",
-        title: "Live plan",
+        title: "实时交易计划",
         time: last.timestamp,
         barIndex: candles.length - 1,
         chartObjectIds: chartObjects.map((object) => object.id),
         orderId: order.id,
-        outcome: "submitted",
+        outcome: "已提交",
         narrative: tradeReason
       }
     ],
@@ -474,7 +479,7 @@ async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl
     journal: [
       {
         time: last.timestamp,
-        event: "Live simulated order submitted",
+        event: "实时模拟订单已提交",
         text: tradeReason
       }
     ],
@@ -750,9 +755,9 @@ function analysisPrompt({ candles, first, last, high, low, refs }) {
     close: candle.close
   }));
   return (
-    "You are PAquant Brooks Generalist. Analyze live XAUUSD 5m futures-proxy data as a price-action trader. " +
-    "You must call at least one drawing tool and at least one measurement tool before finalizing the thesis. " +
-    "Do not expose hidden chain-of-thought; return a concise reasoning summary after tool calls.\n\n" +
+    "你是 PAquant 的布鲁克斯通用交易员。请分析实时 XAUUSD 5分钟期货代理行情。 " +
+    "必须先调用至少一个绘图工具和至少一个测量工具，再形成交易假设。 " +
+    "不要暴露隐藏思维链；所有可见输出必须只用简体中文，不能输出英文解释。\n\n" +
     `Session facts: first_open=${first.open}, last_close=${last.close}, high=${high}, low=${low}, bars=${candles.length}.\n` +
     `Recent candles: ${JSON.stringify(recent)}.\n` +
     `Relevant Brooks refs: ${refs.map((ref) => ref.key).join(", ")}.`
@@ -766,15 +771,15 @@ function forcedToolPrompt(toolName, candles, refs) {
   const mid = candles[midIndex];
   if (toolName === "draw_trendline") {
     return (
-      "Your previous response did not create a chart drawing. Call draw_trendline now using id 'model-live-trendline', " +
-      `label 'Model live trend line', start {'time_index':0,'price':${first.low}}, ` +
-      `end {'time_index':${candles.length - 1},'price':${last.close}}. Relevant refs: ${refs.map((ref) => ref.key).join(", ")}.`
+      "上一轮没有生成图表绘图。现在只调用 draw_trendline，使用 id 'model-live-trendline', " +
+      `label '模型实时趋势线', start {'time_index':0,'price':${first.low}}, ` +
+      `end {'time_index':${candles.length - 1},'price':${last.close}}. 可见文本必须是简体中文。Relevant refs: ${refs.map((ref) => ref.key).join(", ")}.`
     );
   }
   return (
-    "Your previous response did not create a measurement. Call measure_leg now using " +
+    "上一轮没有生成测量。现在只调用 measure_leg，使用 " +
     `start {'time_index':0,'price':${first.close}}, end {'time_index':${midIndex},'price':${mid.close}}. ` +
-    `Relevant refs: ${refs.map((ref) => ref.key).join(", ")}.`
+    `可见文本必须是简体中文。Relevant refs: ${refs.map((ref) => ref.key).join(", ")}.`
   );
 }
 
@@ -817,76 +822,161 @@ function anchorSchema() {
 }
 
 function buildContextualOrder(candles, bias) {
-  const early = candles.slice(0, Math.min(13, candles.length));
-  const sessionHigh = Math.max(...candles.map((candle) => candle.high));
-  const sessionLow = Math.min(...candles.map((candle) => candle.low));
-  const earlyHigh = Math.max(...early.map((candle) => candle.high));
-  const earlyLow = Math.min(...early.map((candle) => candle.low));
-  const risk = round2(Math.min(5, Math.max(1, (sessionHigh - sessionLow) * 0.12)));
+  const signal = findSignalBar(candles, bias);
+  const tick = 0.1;
+  const minimumRisk = 1;
+
   if (bias === "short") {
-    const entry = round2(earlyHigh - Math.min(3.5, Math.max(1, risk * 0.7)));
+    const entry = round2(signal.candle.low - tick);
+    const stop = round2(Math.max(signal.candle.high + tick, entry + minimumRisk));
+    const risk = round2(Math.abs(stop - entry));
     return {
       id: "sim-XAUUSD-5m-live-brooks-short",
       symbol: "XAUUSD",
       timeframe: "5m",
       side: "sell",
-      order_type: "limit",
-      activation_price: null,
+      order_type: "stop",
+      activation_price: entry,
       entry,
-      stop: round2(entry + risk),
+      stop,
       target: round2(entry - risk * 2),
       quantity: 1,
-      setup_name: "Brooks pullback in always-in short context"
+      setup_name: "始终在场空头背景下的 Brooks 信号K线突破",
+      execution_plan: buildExecutionPlan({
+        side: "sell",
+        entry,
+        signal,
+        triggerSide: "low"
+      })
     };
   }
-  const entry = round2(earlyLow + Math.min(3.5, Math.max(1, risk * 0.7)));
+  const entry = round2(signal.candle.high + tick);
+  const stop = round2(Math.min(signal.candle.low - tick, entry - minimumRisk));
+  const risk = round2(Math.abs(entry - stop));
   return {
     id: "sim-XAUUSD-5m-live-brooks-long",
     symbol: "XAUUSD",
     timeframe: "5m",
     side: "buy",
-    order_type: "limit",
-    activation_price: null,
+    order_type: "stop",
+    activation_price: entry,
     entry,
-    stop: round2(entry - risk),
+    stop,
     target: round2(entry + risk * 2),
     quantity: 1,
-    setup_name: "Brooks pullback in always-in long context"
+    setup_name: "始终在场多头背景下的 Brooks 信号K线突破",
+    execution_plan: buildExecutionPlan({
+      side: "buy",
+      entry,
+      signal,
+      triggerSide: "high"
+    })
   };
 }
 
+function findSignalBar(candles, bias) {
+  const startIndex = Math.max(0, candles.length - 12);
+  const recent = candles.slice(startIndex);
+  const predicate =
+    bias === "short"
+      ? (candle) => candle.close < candle.open && candle.close_position <= 0.45
+      : (candle) => candle.close > candle.open && candle.close_position >= 0.55;
+
+  for (let offset = recent.length - 1; offset >= 0; offset -= 1) {
+    if (predicate(recent[offset])) {
+      return { index: startIndex + offset, candle: recent[offset] };
+    }
+  }
+
+  const fallbackIndex = candles.length - 1;
+  return { index: fallbackIndex, candle: candles[fallbackIndex] };
+}
+
+function buildExecutionPlan({ side, entry, signal, triggerSide }) {
+  const isBuy = side === "buy";
+  const signalExtreme = triggerSide === "high" ? signal.candle.high : signal.candle.low;
+  const triggerVerb = isBuy ? "突破" : "跌破";
+  const orderName = isBuy ? "buy stop" : "sell stop";
+  const directionLabel = isBuy ? "多头" : "空头";
+  return {
+    order_type_label: orderName,
+    signal_bar_index: signal.index,
+    signal_bar_time: signal.candle.timestamp,
+    signal_bar_pattern: `${directionLabel}信号K线：实体方向一致，收盘位置支持 ${orderName}`,
+    trigger_price: entry,
+    trigger_condition: `${triggerVerb}信号K线${triggerSide === "high" ? "高点" : "低点"} ${signalExtreme.toFixed(
+      2
+    )} 后，以 ${entry.toFixed(2)} 触发 ${orderName}`,
+    entry_tactic: `${orderName} stop order，等待信号K线被触发后才入场；触发前不成交`
+  };
+}
+
+function describeExecutionPlan(order) {
+  const plan = order.execution_plan;
+  return `订单类型为 ${plan.order_type_label}；信号K线为第 ${
+    plan.signal_bar_index + 1
+  } 根，${plan.trigger_condition}。`;
+}
+
+function formatOrderSide(side) {
+  return side === "sell" ? "做空" : "做多";
+}
+
+function visibleChineseReasoningSummary({ analysisText, modelName, order, bias, toolNames }) {
+  const text = String(analysisText ?? "").trim();
+  if (containsChinese(text)) {
+    return text;
+  }
+  const direction = bias === "short" ? "空头" : "多头";
+  const risk = round2(Math.abs(order.entry - order.stop));
+  const reward = round2(Math.abs(order.target - order.entry));
+  const tools = toolNames.length ? toolNames.join("、") : "绘图和测量工具";
+  return (
+    `${modelName} 已完成实时结构分析：当前始终在场方向按${direction}评估，` +
+    `已执行 ${tools}，并基于入场 ${order.entry.toFixed(2)}、止损 ${order.stop.toFixed(2)}、` +
+    `止盈 ${order.target.toFixed(2)} 形成模拟${formatOrderSide(order.side)}计划。` +
+    `本轮风险 ${risk} 点，目标回报 ${reward} 点。`
+  );
+}
+
+function containsChinese(text) {
+  return /[\u3400-\u9fff]/.test(text);
+}
+
 function tradeMarkers(order, candles) {
-  const index = Math.max(0, candles.length - 1);
+  const index = order.execution_plan?.signal_bar_index ?? Math.max(0, candles.length - 1);
   return [
     {
       kind: "trade_marker",
       id: "entry-marker",
-      label: `Entry ${order.entry.toFixed(2)} | Size ${order.quantity}`,
+      label: `入场 ${order.entry.toFixed(2)} | 仓位 ${order.quantity}`,
       time_index: index,
       price: order.entry,
       marker_type: "entry",
       quantity: order.quantity,
-      reason: "Entry marks the live simulated order generated after model tool calls."
+      reason: order.execution_plan?.trigger_condition
+        ? `入场标记：${order.execution_plan.trigger_condition}`
+        : "入场标记来自模型工具调用后的实时模拟订单。"
     },
     {
       kind: "trade_marker",
       id: "stop-marker",
-      label: `Stop ${order.stop.toFixed(2)} | Size ${order.quantity}`,
+      label: `止损 ${order.stop.toFixed(2)} | 仓位 ${order.quantity}`,
       time_index: index,
       price: order.stop,
       marker_type: "stop",
       quantity: order.quantity,
-      reason: "Stop marks the invalidation price for this live simulated order."
+      reason: "止损标记表示本笔实时模拟订单的失效价格。"
     },
     {
       kind: "trade_marker",
       id: "target-marker",
-      label: `Target ${order.target.toFixed(2)} | Size ${order.quantity}`,
+      label: `止盈 ${order.target.toFixed(2)} | 仓位 ${order.quantity}`,
       time_index: index,
       price: order.target,
       marker_type: "target",
       quantity: order.quantity,
-      reason: "Target marks the 2R measured reward from the order entry."
+      reason: "止盈标记表示从入场价测算出的 2R 回报目标。"
     }
   ];
 }
@@ -895,7 +985,7 @@ function measuredMove(order) {
   return {
     kind: "measured_move",
     id: "mm-target",
-    label: "Measured move target",
+    label: "等距测量目标",
     start: { time_index: 0, price: order.entry },
     end: { time_index: 8, price: order.target },
     projected_from: { time_index: 12, price: round2((order.entry + order.target) / 2) },
@@ -935,57 +1025,57 @@ function knowledgeBrowser() {
     sources: [
       {
         id: "brooks-compiled",
-        title: "Compiled Brooks price action summaries",
+        title: "Brooks 价格行为结构化摘要",
         sourceType: "local_pdf",
-        themes: ["context", "always-in", "pullback", "trader equation"],
+        themes: ["上下文", "始终在场", "回调", "交易员方程"],
         chapterRefs: ["compiled:trend", "compiled:trading-range", "compiled:wedge"]
       }
     ],
     concepts: [
       {
         key: "context-before-setup",
-        name: "Context before setup",
-        summary: "The same pattern has different meaning in trend, channel, or range.",
+        name: "先看上下文再看形态",
+        summary: "同一个形态在趋势、通道或交易区间中含义不同。",
         sourceRefs: ["compiled:trend"],
-        questions: ["What is the always-in side?", "Is follow-through present?"]
+        questions: ["始终在场方向是哪边？", "是否出现后续跟进？"]
       }
     ],
     setupDossiers: [
       {
         key: "always-in-pullback",
-        name: "Always-in pullback",
-        context: "Evaluate pullbacks only after trend context, channel quality, and trader equation are visible.",
-        observations: ["trend line", "pullback quality"],
-        measurements: ["leg distance", "bar count", "deviation from channel"],
-        entryStyles: ["limit pullback", "stop entry after signal"],
-        stopLogic: ["beyond invalidation swing"],
-        targets: ["2R", "measured move"],
-        management: ["reduce when follow-through fails"],
-        failureModes: ["failed breakout", "range transition"],
-        nearbySetups: ["second entry", "wedge pullback"],
+        name: "始终在场回调",
+        context: "只有趋势上下文、通道质量和交易员方程清楚后，才评估回调。",
+        observations: ["趋势线", "回调质量"],
+        measurements: ["腿长", "K线计数", "偏离通道幅度"],
+        entryStyles: ["回调限价", "信号后止损触发入场"],
+        stopLogic: ["放在失效摆动之外"],
+        targets: ["2R", "等距测量"],
+        management: ["后续跟进失败时减小风险"],
+        failureModes: ["突破失败", "转入交易区间"],
+        nearbySetups: ["二次入场", "楔形回调"],
         sourceRefs: ["compiled:pullback"]
       }
     ],
     caseCards: [
       {
         key: "live-pullback",
-        title: "Live model-assisted pullback",
+        title: "实时模型辅助回调",
         sourceRefs: ["compiled:pullback"],
-        chartContext: "Live XAU 5m futures proxy",
-        patternInterpretation: "Treat tool output as evidence, not as hidden reasoning.",
-        traderThinking: "Check context, invalidation, and trader equation before order.",
-        expectedFollowThrough: "Follow-through should appear before adding risk.",
-        failureScenario: "Break beyond stop invalidates thesis."
+        chartContext: "实时 XAU 5分钟期货代理行情",
+        patternInterpretation: "把工具输出作为证据，不展示隐藏思维链。",
+        traderThinking: "下单前检查上下文、失效条件和交易员方程。",
+        expectedFollowThrough: "追加风险前应先看到后续跟进。",
+        failureScenario: "突破止损价外侧将使假设失效。"
       }
     ],
     reasoningPlaybooks: [
       {
         key: "brooks-live-checklist",
-        name: "Brooks live checklist",
-        questions: ["What is the context?", "What did tools measure?", "Where is invalidation?"],
-        requiredObservations: ["trend/range state", "key levels", "risk/reward"],
-        invalidationChecks: ["stop price", "failed follow-through"],
-        displayGuardrails: ["Show auditable summary, not hidden chain-of-thought."]
+        name: "Brooks 实时检查清单",
+        questions: ["当前上下文是什么？", "工具测量了什么？", "失效位置在哪里？"],
+        requiredObservations: ["趋势/区间状态", "关键价位", "风险/回报"],
+        invalidationChecks: ["止损价", "后续跟进失败"],
+        displayGuardrails: ["只展示可审计摘要，不展示隐藏思维链。"]
       }
     ]
   };
@@ -996,16 +1086,16 @@ function knowledgeRefs() {
     {
       artifactType: "reasoning_playbook",
       key: "brooks-live-checklist",
-      title: "Brooks live checklist",
-      summary: "Context, measurements, invalidation, and trader equation before order.",
+      title: "Brooks 实时检查清单",
+      summary: "下单前检查上下文、测量结果、失效条件和交易员方程。",
       sourceRefs: ["compiled:pullback"],
       score: 0.91
     },
     {
       artifactType: "setup_dossier",
       key: "always-in-pullback",
-      title: "Always-in pullback",
-      summary: "Pullback candidate filtered by live context and risk/reward.",
+      title: "始终在场回调",
+      summary: "用实时上下文和风险回报过滤回调候选。",
       sourceRefs: ["compiled:pullback"],
       score: 0.88
     }
@@ -1016,16 +1106,16 @@ function traderProfiles() {
   return [
     {
       id: "brooks-generalist",
-      name: "Brooks Generalist",
-      persona: "Live model-backed price-action simulator that calls tools before placing simulated orders.",
+      name: "Brooks 通用交易员",
+      persona: "由真实模型支持的价格行为模拟交易员，下模拟订单前必须调用工具。",
       status: "active",
       symbol: "XAUUSD",
       timeframe: "5m",
-      preferredSetups: ["always-in pullback", "failed breakout", "three pushes"],
-      riskStyle: "one unit simulated risk after visible invalidation",
+      preferredSetups: ["始终在场回调", "突破失败", "三推"],
+      riskStyle: "可见失效位确认后，只使用一单位模拟风险",
       toolPermissions: ["find_swings", "draw_trendline", "measure_leg", "count_bars"],
-      knowledgePolicy: "retrieve compiled Brooks checklist and setup dossier",
-      recentAction: "Waiting for user start; no model call runs automatically.",
+      knowledgePolicy: "检索已编译 Brooks 检查清单和形态档案",
+      recentAction: "等待用户启动；不会自动调用模型。",
       performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
     }
   ];

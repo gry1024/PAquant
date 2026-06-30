@@ -19,6 +19,24 @@ class KnowledgeSource(BaseModel):
     chapter_refs: list[str]
 
 
+class BookChapter(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source_id: str
+    part: str
+    title: str
+    summary: str
+    concept_keys: list[str]
+
+
+class ConceptEdge(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source: str
+    target: str
+    relation: str
+
+
 class Concept(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -46,6 +64,31 @@ class SetupDossier(BaseModel):
     source_refs: list[str]
 
 
+class CaseDiagramPoint(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    x: float
+    y: float
+    role: Literal["push", "breakout", "reentry", "target", "failure"]
+
+
+class CaseDiagramLevel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    y: float
+
+
+class CaseDiagram(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["wedge", "failed_breakout"]
+    caption: str
+    points: list[CaseDiagramPoint]
+    levels: list[CaseDiagramLevel]
+
+
 class CaseCard(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -57,6 +100,7 @@ class CaseCard(BaseModel):
     trader_thinking: str
     expected_follow_through: str
     failure_scenario: str
+    diagram: CaseDiagram
 
 
 class ReasoningPlaybook(BaseModel):
@@ -70,15 +114,28 @@ class ReasoningPlaybook(BaseModel):
     display_guardrails: list[str]
 
 
+class GlossaryTerm(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    english: str
+    chinese: str
+    abbreviation: str | None = None
+    definition: str
+    source_refs: list[str]
+
+
 class KnowledgeArtifact(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str
     sources: list[KnowledgeSource]
+    chapter_map: list[BookChapter]
     concepts: list[Concept]
+    concept_edges: list[ConceptEdge]
     setup_dossiers: list[SetupDossier]
     case_cards: list[CaseCard]
     reasoning_playbooks: list[ReasoningPlaybook]
+    glossary: list[GlossaryTerm]
 
 
 def compile_core_knowledge() -> KnowledgeArtifact:
@@ -87,325 +144,549 @@ def compile_core_knowledge() -> KnowledgeArtifact:
             id="brooks-trends",
             title="Trading Price Action - Trends",
             source_type="local_pdf",
-            themes=["trend", "channel", "always-in", "pullback quality"],
+            themes=["趋势", "通道", "始终在场", "回调质量"],
             chapter_refs=[
-                "Trend from the open",
-                "Channels and broad channels",
-                "Pullbacks in strong trends",
+                "开盘后的趋势",
+                "趋势线、趋势通道线与宽通道",
+                "强趋势中的回调和二次入场",
             ],
         ),
         KnowledgeSource(
             id="brooks-trading-ranges",
             title="Trading Price Action - Trading Ranges",
             source_type="local_pdf",
-            themes=["trading range", "failed breakout", "buy low sell high"],
+            themes=["交易区间", "突破失败", "低买高卖", "双向交易"],
             chapter_refs=[
-                "Trading range behavior",
-                "Breakouts and failed breakouts",
-                "Support and resistance in ranges",
+                "交易区间行为",
+                "突破、突破回调与失败突破",
+                "区间内支撑阻力与中线磁力",
             ],
         ),
         KnowledgeSource(
             id="brooks-reversals",
             title="Trading Price Action - Reversals",
             source_type="local_pdf",
-            themes=["wedge", "three pushes", "failed reversal", "exhaustion"],
+            themes=["反转", "楔形", "三推", "最终旗形", "衰竭"],
             chapter_refs=[
-                "Major trend reversals",
-                "Wedges and three pushes",
-                "Failed reversals and final flags",
+                "主要趋势反转",
+                "楔形和三推",
+                "失败反转、最终旗形与陷阱",
             ],
+        ),
+    ]
+    chapter_map = [
+        BookChapter(
+            source_id="brooks-trends",
+            part="趋势卷",
+            title="趋势、通道和始终在场方向",
+            summary=(
+                "先判定趋势是否足够强，再决定回调是顺势机会、交易区间测试，还是趋势即将失败的证据。"
+            ),
+            concept_keys=["context", "always_in", "trend_channel", "signal_bar"],
+        ),
+        BookChapter(
+            source_id="brooks-trends",
+            part="趋势卷",
+            title="回调、二次入场和强趋势跟进",
+            summary=(
+                "高质量回调通常要看回调深度、信号K线、突破触发和后续跟进；"
+                "强趋势会拒绝便宜价格，不能机械等待深回调。"
+            ),
+            concept_keys=["pullback", "second_entry", "traders_equation"],
+        ),
+        BookChapter(
+            source_id="brooks-trading-ranges",
+            part="交易区间卷",
+            title="交易区间的双向性和失败突破",
+            summary=(
+                "区间意味着不确定，很多突破会失败；靠近区间边界的交易"
+                "必须明确被套方、失效价和区间中线目标。"
+            ),
+            concept_keys=["trading_range", "failed_breakout", "breakout_pullback"],
+        ),
+        BookChapter(
+            source_id="brooks-reversals",
+            part="反转卷",
+            title="楔形、三推和主要趋势反转",
+            summary=(
+                "反转不是几何图形本身，而是多次尝试、动能变化、通道过冲"
+                "与强信号K线共同构成的概率变化。"
+            ),
+            concept_keys=["three_push", "wedge", "major_trend_reversal", "final_flag"],
         ),
     ]
     concepts = [
         Concept(
             key="context",
-            name="Context Before Setup",
+            name="上下文先于形态",
             summary=(
-                "A pattern only has trading meaning after trend, channel, range, "
-                "and recent urgency are understood."
+                "同一个形态在趋势、通道、交易区间和反转过渡里含义不同；"
+                "先判断市场状态，再讨论 setup。"
             ),
             source_refs=["brooks-trends", "brooks-trading-ranges"],
-            questions=[
-                "Is the market trending, ranging, or transitioning?",
-                "Who is trapped if this setup fails?",
-            ],
+            questions=["市场是在趋势、区间还是过渡？", "如果 setup 失败，哪一方会被套？"],
         ),
         Concept(
             key="always_in",
-            name="Always-In Direction",
+            name="始终在场方向",
             summary=(
-                "The trader tracks which side a reasonable swing trader should "
-                "currently favor until evidence flips it."
+                "始终在场方向是合理波段交易者当前应偏向的一边，直到足够强的反向证据迫使其翻转。"
             ),
             source_refs=["brooks-trends"],
-            questions=[
-                "What would force a swing trader to exit?",
-                "Are pullbacks being bought or sold aggressively?",
-            ],
+            questions=["什么证据会迫使波段交易者退出？", "回调是否被积极买入或卖出？"],
+        ),
+        Concept(
+            key="signal_bar",
+            name="信号K线",
+            summary=(
+                "信号K线是下单前用于定义触发价和失效价的 K 线；质量取决于"
+                "实体方向、收盘位置、上下文和后续跟进。"
+            ),
+            source_refs=["brooks-trends", "brooks-reversals"],
+            questions=["信号K线是否在正确位置？", "突破高点/低点后是否有空间完成交易员方程？"],
+        ),
+        Concept(
+            key="entry_bar",
+            name="入场K线",
+            summary=(
+                "入场K线是 stop、limit 或 market 订单真正触发后的 K 线；"
+                "它验证交易计划是否从观察进入执行。"
+            ),
+            source_refs=["brooks-trends"],
+            questions=["订单是在何处触发？", "入场K线是否立刻反向，提示失败？"],
         ),
         Concept(
             key="trend_channel",
-            name="Trend and Channel Spectrum",
+            name="趋势-通道光谱",
             summary=(
-                "Channels can behave as sloping trading ranges, so line breaks "
-                "and overshoots need follow-through."
+                "紧通道更像强趋势，宽通道常像倾斜交易区间；过冲、欠冲和"
+                "通道线突破都需要后续 K 线确认。"
             ),
             source_refs=["brooks-trends"],
-            questions=["Is the channel tight or broad?", "Did the overshoot reverse with urgency?"],
+            questions=["通道是紧还是宽？", "通道过冲后是否出现强反向信号K线？"],
+        ),
+        Concept(
+            key="pullback",
+            name="回调",
+            summary=(
+                "回调是趋势中的逆向测试；高质量顺势回调通常需要清楚的"
+                "始终在场背景、可承受止损和明确触发。"
+            ),
+            source_refs=["brooks-trends"],
+            questions=["回调是否破坏趋势结构？", "信号K线触发后目标空间是否足够？"],
+        ),
+        Concept(
+            key="second_entry",
+            name="二次入场",
+            summary=("二次入场利用第一次尝试失败后的再次触发，常见于 High 2、Low 2 和趋势回调。"),
+            source_refs=["brooks-trends"],
+            questions=["第一次入场为什么失败？", "第二次触发是否有更好的上下文？"],
         ),
         Concept(
             key="trading_range",
-            name="Trading Range State",
+            name="交易区间",
             summary=(
-                "Ranges express uncertainty; many breakouts fail and probability "
-                "often favors fading extremes."
+                "交易区间代表不确定和双向交易；很多突破失败，区间中线具有"
+                "磁力，靠近边界才有更清晰的交易员方程。"
             ),
             source_refs=["brooks-trading-ranges"],
-            questions=[
-                "Is price near the range high, low, or middle?",
-                "Has a breakout shown follow-through?",
-            ],
+            questions=["价格靠近区间高低点还是中线？", "突破是否有连续跟进？"],
         ),
         Concept(
-            key="three_push",
-            name="Three Pushes",
+            key="breakout_pullback",
+            name="突破回调",
             summary=(
-                "Three pushes are repeated attempts that may show exhaustion, "
-                "especially when spacing widens or momentum fades into the "
-                "third push."
+                "突破回调要求先有真实突破和后续跟进，再等待回测突破位后的"
+                "二次确认，而不是把每个回踩都当机会。"
             ),
-            source_refs=["brooks-reversals"],
-            questions=[
-                "Are pushes weakening?",
-                "Is the third push overshooting or undershooting the channel?",
-            ],
-        ),
-        Concept(
-            key="wedge",
-            name="Wedge Reversal",
-            summary=(
-                "A wedge is context plus repeated attempts, not geometry alone; "
-                "the signal bar and follow-through decide quality."
-            ),
-            source_refs=["brooks-reversals"],
-            questions=[
-                "Is there a credible signal bar?",
-                "What target is reasonable for the correction?",
-            ],
+            source_refs=["brooks-trading-ranges", "brooks-trends"],
+            questions=["突破是否已经证明自己？", "回测是否守住突破位？"],
         ),
         Concept(
             key="failed_breakout",
-            name="Failed Breakout",
+            name="失败突破",
             summary=(
-                "A failed breakout can create stronger opposite pressure when "
-                "traders are trapped beyond a known level."
+                "失败突破会把追突破的一方困在区间外；重新进入区间后，价格常测试中线甚至另一侧边界。"
             ),
             source_refs=["brooks-trading-ranges", "brooks-reversals"],
-            questions=[
-                "Where are breakout traders trapped?",
-                "Did price re-enter the range decisively?",
-            ],
+            questions=["被套交易者在哪里？", "重新进入区间是否足够果断？"],
+        ),
+        Concept(
+            key="three_push",
+            name="三推",
+            summary=(
+                "三推是连续三次尝试，重点不只是数量，还要看每一推的间距、"
+                "腿长、动能和第三推相对通道的位置。"
+            ),
+            source_refs=["brooks-reversals"],
+            questions=["三推的间距和动能是否减弱？", "第三推是过冲、欠冲还是强突破？"],
+        ),
+        Concept(
+            key="wedge",
+            name="楔形反转",
+            summary=(
+                "楔形是上下文、三次尝试、动能变化和信号K线共同构成的反转候选，不是单纯画三条线。"
+            ),
+            source_refs=["brooks-reversals"],
+            questions=["信号K线是否可信？", "反转目标能否覆盖止损风险？"],
+        ),
+        Concept(
+            key="major_trend_reversal",
+            name="主要趋势反转",
+            summary=(
+                "主要趋势反转通常需要趋势线突破、极点测试失败和强反向突破；"
+                "单根反转K线很少足以改变始终在场方向。"
+            ),
+            source_refs=["brooks-reversals"],
+            questions=["是否先突破趋势线？", "测试极点时是否失败并产生强反向跟进？"],
+        ),
+        Concept(
+            key="final_flag",
+            name="最终旗形",
+            summary=("最终旗形是趋势末端最后一个看似顺势的小型延续形态，失败后常引发更大修正。"),
+            source_refs=["brooks-reversals"],
+            questions=["这个旗形是否出现在成熟趋势末端？", "失败后谁会被迫出场？"],
         ),
         Concept(
             key="traders_equation",
-            name="Trader's Equation",
+            name="交易员方程",
             summary=(
-                "A trade requires the relationship between probability, risk, "
-                "and reward to justify action."
+                "一笔交易必须同时解释概率、风险和回报；没有足够空间或止损"
+                "过宽时，即使形态好看也应不交易。"
             ),
             source_refs=["brooks-trends", "brooks-trading-ranges", "brooks-reversals"],
-            questions=[
-                "Is the reward at least enough for this probability?",
-                "Where is the invalidation price?",
-            ],
+            questions=["预期回报是否足以覆盖风险？", "失效价是否明确且可承受？"],
+        ),
+    ]
+    concept_edges = [
+        ConceptEdge(source="context", target="always_in", relation="先判断市场状态再定方向"),
+        ConceptEdge(source="always_in", target="pullback", relation="方向决定回调是否顺势"),
+        ConceptEdge(source="signal_bar", target="entry_bar", relation="信号K线被突破后形成入场K线"),
+        ConceptEdge(
+            source="pullback", target="second_entry", relation="第一次尝试失败后寻找二次入场"
+        ),
+        ConceptEdge(
+            source="trend_channel", target="three_push", relation="通道过冲常用于判断第三推质量"
+        ),
+        ConceptEdge(
+            source="trading_range", target="failed_breakout", relation="区间边界提供失败突破背景"
+        ),
+        ConceptEdge(
+            source="failed_breakout", target="traders_equation", relation="被套方和区间目标决定回报"
+        ),
+        ConceptEdge(source="three_push", target="wedge", relation="三推是楔形反转的重要结构证据"),
+        ConceptEdge(
+            source="wedge", target="major_trend_reversal", relation="楔形可能发展成主要趋势反转"
+        ),
+        ConceptEdge(
+            source="final_flag", target="failed_breakout", relation="最终旗形失败会形成反向突破压力"
         ),
     ]
     dossiers = [
         SetupDossier(
-            key="wedge_reversal",
-            name="Wedge Reversal",
-            context=(
-                "Best near a channel extreme, after repeated attempts and "
-                "visible momentum loss."
-            ),
-            observations=[
-                "Three pushes are countable",
-                "Signal bar closes strongly against the prior move",
-            ],
+            key="always_in_pullback",
+            name="始终在场回调",
+            context="趋势或紧通道中，回调没有破坏始终在场方向，适合等待顺势信号K线触发。",
+            observations=["回调幅度受控", "顺势信号K线质量足够", "反向方没有连续强跟进"],
             measurements=[
-                "Count each push from swing extreme to swing extreme",
-                "Compare leg size and spacing between pushes",
-                "Check channel overshoot or undershoot on the third push",
+                "标出始终在场趋势线和最近摆动点",
+                "测量回调深度相对前一推动腿的比例",
+                "检查信号K线高低点与止损距离",
             ],
-            entry_styles=[
-                "stop entry beyond signal bar",
-                "limit entry on pullback after confirmation",
+            entry_styles=["buy stop / sell stop 突破信号K线", "二次入场确认后再 stop 触发"],
+            stop_logic=["止损放在信号K线另一侧或回调摆动极点外", "止损过宽时降低仓位"],
+            targets=["第一目标看前高/前低测试", "第二目标看等距测量或通道线"],
+            management=["触发后没有跟进时快速减仓", "趋势恢复强时保留 runner"],
+            failure_modes=["回调变成交易区间", "信号K线触发后马上反向形成失败突破"],
+            nearby_setups=["second_entry", "breakout_pullback", "traders_equation"],
+            source_refs=["brooks-trends"],
+        ),
+        SetupDossier(
+            key="second_entry",
+            name="二次入场 High 2 / Low 2",
+            context="第一次顺势尝试失败但没有破坏趋势背景，第二次触发可能更清晰地暴露被套方。",
+            observations=["第一次入场失败后没有强反向突破", "第二个信号K线更接近趋势线或通道极值"],
+            measurements=[
+                "数清 H1/H2 或 L1/L2",
+                "比较两次信号K线质量",
+                "确认第二次触发到目标的空间",
             ],
-            stop_logic=[
-                "Protect beyond the signal bar or final push extreme",
-                "Reduce size if the protective stop is too wide for trader equation",
+            entry_styles=["H2 买入 stop 单", "L2 卖出 stop 单"],
+            stop_logic=["止损在第二信号K线另一侧", "若第二次信号过大则等待更小回调"],
+            targets=["前一摆动极点", "两段腿等距测量目标"],
+            management=["触发后若形成强入场K线则持有", "第二次也失败时退出并考虑反向压力"],
+            failure_modes=["第二次入场成为陷阱", "市场已转为交易区间，中线附近不适合追"],
+            nearby_setups=["always_in_pullback", "failed_breakout"],
+            source_refs=["brooks-trends"],
+        ),
+        SetupDossier(
+            key="breakout_pullback",
+            name="突破回调",
+            context="先有明确突破和跟进，再等待回测突破位后的再次触发。",
+            observations=["突破K线实体强", "突破后至少有跟进K线", "回测不应深度回到旧区间"],
+            measurements=["画出突破边界", "统计突破外停留K线数量", "测量突破腿和回调腿"],
+            entry_styles=["突破回调后的信号K线 stop 单", "强趋势中可用小仓位 market 跟进"],
+            stop_logic=["止损在回测低点/高点外", "若回测深入旧区间则取消计划"],
+            targets=["突破腿等距测量", "下一阻力/支撑或通道线"],
+            management=["突破后没有第二腿时减仓", "回到突破位内侧则退出"],
+            failure_modes=["突破失败并重新进入区间", "突破回调变成宽区间震荡"],
+            nearby_setups=["failed_breakout", "always_in_pullback"],
+            source_refs=["brooks-trading-ranges", "brooks-trends"],
+        ),
+        SetupDossier(
+            key="trading_range_scalp",
+            name="交易区间剥头皮",
+            context="成熟交易区间内靠近高低边界，优先低买高卖，不在中线追单。",
+            observations=["K线重叠多", "突破缺乏跟进", "区间边界被多次测试"],
+            measurements=[
+                "标出区间高低点和中线",
+                "计算到中线和另一侧边界的空间",
+                "统计突破失败次数",
             ],
-            targets=[
-                "First target near the prior pullback low or moving-average test",
-                "Second target near the start of the wedge when reversal is strong",
-            ],
-            management=[
-                "Exit quickly if reversal follow-through is absent",
-                "Hold runner only after a clear opposite always-in transition",
-            ],
-            failure_modes=[
-                "Third push becomes a breakout with follow-through",
-                "Signal bar is small in a strong trend",
-            ],
+            entry_styles=["区间低位买入 stop/limit 计划", "区间高位卖出 stop/limit 计划"],
+            stop_logic=["止损放在区间外失败突破极点外", "中线附近不新开仓"],
+            targets=["保守目标为区间中线", "强 re-entry 可看另一侧边界"],
+            management=["接近中线先减仓", "突破连续收在区间外则停止反向交易"],
+            failure_modes=["区间突破转为趋势", "边界太宽导致风险回报不足"],
+            nearby_setups=["failed_breakout", "breakout_pullback"],
+            source_refs=["brooks-trading-ranges"],
+        ),
+        SetupDossier(
+            key="failed_breakout",
+            name="失败突破",
+            context="既有区间或关键价位被突破后无法站稳，价格快速回到原结构内。",
+            observations=["突破缺乏跟进", "重新进入区间", "突破交易者被套在边界外"],
+            measurements=["标出突破边界", "数突破外 K 线数量", "比较突破K线与 re-entry K线强弱"],
+            entry_styles=["重新进入区间后 stop 触发", "回测破位失败位置时限价小仓位"],
+            stop_logic=["止损在失败突破极点外", "若入场靠近区间中线则降低仓位"],
+            targets=["区间中线", "re-entry 强时看另一侧边界"],
+            management=["到中线先兑现部分利润", "价格重新站回区间外则退出"],
+            failure_modes=["突破恢复并连续收在区间外", "原区间定义不清"],
+            nearby_setups=["trading_range_scalp", "breakout_pullback", "wedge_reversal"],
+            source_refs=["brooks-trading-ranges"],
+        ),
+        SetupDossier(
+            key="wedge_reversal",
+            name="楔形反转",
+            context="通道极值附近出现三次推动，第三推动能减弱或过冲后无法跟进。",
+            observations=["三推可数", "第三推相对通道过冲/欠冲", "反向信号K线收盘强"],
+            measurements=["逐腿数三推", "比较每一腿的腿长和间距", "检查第三推相对通道线的位置"],
+            entry_styles=["突破反向信号K线的 stop 单", "确认后回调入场"],
+            stop_logic=["止损在信号K线或最终推动极点外", "止损过宽则不做或减仓"],
+            targets=["前一回调低/高点", "强反转时看楔形起点或通道中线"],
+            management=["没有反向跟进就快速退出", "始终在场翻转后才持有 runner"],
+            failure_modes=["第三推变成真实突破", "强趋势中信号K线太小"],
             nearby_setups=["failed_breakout", "major_trend_reversal", "final_flag"],
             source_refs=["brooks-reversals"],
         ),
         SetupDossier(
-            key="failed_breakout",
-            name="Failed Breakout",
-            context=(
-                "Best at a prior range boundary when price breaks out then "
-                "quickly returns inside."
-            ),
-            observations=["Breakout lacks follow-through", "Re-entry traps breakout traders"],
-            measurements=[
-                "Mark the prior range boundary",
-                "Count bars outside the range before re-entry",
-                "Compare breakout bar size with follow-through bars",
-            ],
-            entry_styles=["enter on re-entry close", "enter on pullback testing the broken level"],
-            stop_logic=[
-                "Protect beyond the failed breakout extreme",
-                "Avoid full size if entry is near the range middle",
-            ],
-            targets=[
-                "Range midpoint for conservative scalps",
-                "Opposite range extreme if re-entry is strong",
-            ],
-            management=[
-                "Take partial profits into range middle",
-                "Exit if price breaks back outside with consecutive closes",
-            ],
-            failure_modes=[
-                "Breakout resumes with strong consecutive closes",
-                "Range was too weakly defined",
-            ],
-            nearby_setups=["trading_range_scalp", "breakout_pullback", "wedge_reversal"],
-            source_refs=["brooks-trading-ranges"],
+            key="major_trend_reversal",
+            name="主要趋势反转",
+            context="成熟趋势后，趋势线突破、极点测试失败和强反向突破同时出现。",
+            observations=["先有趋势线突破", "测试极点失败", "反向突破有连续跟进"],
+            measurements=["画趋势线和突破点", "比较极点测试与原趋势极点", "测量反向突破腿"],
+            entry_styles=["反向突破信号K线 stop 单", "突破后第一次回调的二次入场"],
+            stop_logic=["止损在失败测试极点外", "没有足够反向跟进时不提前押注"],
+            targets=["趋势线突破后的等距目标", "前一主要摆动点"],
+            management=["若反向方不能形成第二腿则减仓", "始终在场翻转后按趋势管理"],
+            failure_modes=["只是普通回调，原趋势恢复", "测试极点没有失败而是形成突破延续"],
+            nearby_setups=["wedge_reversal", "final_flag", "failed_breakout"],
+            source_refs=["brooks-reversals"],
         ),
     ]
     case_cards = [
         CaseCard(
             key="three_push_channel_overshoot",
-            title="Third push overshoots a broad channel",
+            title="第三推过冲宽通道",
             source_refs=["brooks-reversals"],
-            chart_context=(
-                "XAU 5m is climbing in a broad channel after a mature intraday move."
-            ),
+            chart_context="XAU 5分钟在成熟日内上涨后进入宽通道上行。",
             pattern_interpretation=(
-                "The third push tests above the channel but momentum is weaker "
-                "than the prior leg."
+                "第三推测试通道上沿之外，但动能弱于前一腿，反向信号K线开始有意义。"
             ),
-            trader_thinking=(
-                "Trend traders hesitate to buy high; countertrend traders wait "
-                "for a signal bar and clear invalidation."
-            ),
-            expected_follow_through=(
-                "expected correction toward the prior pullback or channel midline "
-                "if sellers get follow-through."
-            ),
-            failure_scenario=(
-                "A strong close above the channel followed by another bull bar "
-                "turns the wedge read into a breakout."
+            trader_thinking=("趋势交易者不愿在高位追买；反转交易者等待信号K线和清楚失效价。"),
+            expected_follow_through=("如果卖方获得跟进，预期修正会先测试前一回调点或通道中线。"),
+            failure_scenario=("若强收在通道外并继续出现多头跟进，楔形读法应改为突破。"),
+            diagram=CaseDiagram(
+                kind="wedge",
+                caption="三次推动进入通道过冲区域，随后出现修正风险",
+                points=[
+                    CaseDiagramPoint(label="推动1", x=16, y=58, role="push"),
+                    CaseDiagramPoint(label="回调", x=28, y=70, role="target"),
+                    CaseDiagramPoint(label="推动2", x=44, y=42, role="push"),
+                    CaseDiagramPoint(label="回调", x=58, y=56, role="target"),
+                    CaseDiagramPoint(label="推动3", x=76, y=24, role="push"),
+                    CaseDiagramPoint(label="失败", x=88, y=47, role="failure"),
+                ],
+                levels=[
+                    CaseDiagramLevel(label="通道上沿", y=30),
+                    CaseDiagramLevel(label="通道中线", y=54),
+                ],
             ),
         ),
         CaseCard(
             key="failed_breakout_range_reentry",
-            title="Range breakout fails back inside",
+            title="区间突破失败后回到区间内",
             source_refs=["brooks-trading-ranges"],
-            chart_context=(
-                "A defined XAU 5m range breaks above resistance after several "
-                "overlapping bars."
-            ),
-            pattern_interpretation=(
-                "Failure to hold outside the range traps breakout buyers and "
-                "can create a move back toward the range middle."
-            ),
+            chart_context=("XAU 5分钟在多根重叠K线后向上突破清晰区间阻力。"),
+            pattern_interpretation=("无法守在区间外会套住突破买方，并可能推动价格回到区间中线。"),
             trader_thinking=(
-                "Scalpers fade the failed breakout; swing traders require enough "
-                "reward to the opposite side of the range."
+                "剥头皮交易者反向交易失败突破；波段交易者需要确认到区间另一侧的空间足够。"
             ),
-            expected_follow_through=(
-                "A decisive re-entry should test the midpoint and may reach the "
-                "opposite extreme."
-            ),
-            failure_scenario=(
-                "If the breakout retests resistance and holds above it, the "
-                "failed-breakout premise is invalid."
+            expected_follow_through=("果断重新进入区间后，应先测试中线，强势时可看向另一侧边界。"),
+            failure_scenario=("若突破回测阻力并守住，失败突破前提失效。"),
+            diagram=CaseDiagram(
+                kind="failed_breakout",
+                caption="向上突破区间高点失败并重新进入区间",
+                points=[
+                    CaseDiagramPoint(label="区间低点", x=12, y=68, role="target"),
+                    CaseDiagramPoint(label="区间高点", x=34, y=36, role="target"),
+                    CaseDiagramPoint(label="突破", x=55, y=18, role="breakout"),
+                    CaseDiagramPoint(label="回区间", x=72, y=42, role="reentry"),
+                    CaseDiagramPoint(label="中线", x=88, y=56, role="target"),
+                ],
+                levels=[
+                    CaseDiagramLevel(label="区间高点", y=36),
+                    CaseDiagramLevel(label="区间中线", y=54),
+                    CaseDiagramLevel(label="区间低点", y=72),
+                ],
             ),
         ),
     ]
     playbooks = [
         ReasoningPlaybook(
             key="trade_or_no_trade",
-            name="Trade or no-trade decision",
+            name="交易或不交易决策",
             questions=[
-                "What is the current market state?",
-                "Is the setup aligned with context or fighting a strong move?",
-                "Where is invalidation?",
-                "Does the trader's equation justify action?",
+                "当前市场状态是什么？",
+                "setup 顺应上下文，还是在对抗强趋势？",
+                "失效价在哪里？",
+                "交易员方程是否支持入场？",
             ],
             required_observations=[
-                "market state",
-                "always-in bias",
-                "key levels",
-                "setup candidate",
-                "failure scenario",
+                "市场状态",
+                "始终在场方向",
+                "关键价位",
+                "setup 候选",
+                "失败情景",
             ],
             invalidation_checks=[
-                "price violates protective stop",
-                "signal fails to get follow-through",
-                "opposite side becomes always-in",
+                "价格触及保护性止损",
+                "信号K线触发后没有跟进",
+                "反向一方变成始终在场",
             ],
             display_guardrails=[
-                "Show reasoning summary and evidence trail only",
-                "Raw hidden chain-of-thought must not be displayed",
+                "只展示可审计的推理摘要和证据链",
+                "不得展示模型隐藏 chain-of-thought",
             ],
         ),
         ReasoningPlaybook(
             key="wedge_quality",
-            name="Wedge quality review",
+            name="楔形质量复核",
             questions=[
-                "Are there exactly three credible pushes?",
-                "Is momentum increasing or fading?",
-                "Did the third push overshoot or undershoot a channel?",
-                "Is the signal bar strong enough for the risk?",
+                "是否存在三次可信推动？",
+                "动能是在增强还是衰减？",
+                "第三推相对通道是过冲还是欠冲？",
+                "信号K线强度是否足以承担风险？",
             ],
             required_observations=[
-                "push count",
-                "leg comparison",
-                "channel relation",
-                "signal bar close position",
+                "推动计数",
+                "腿长比较",
+                "通道关系",
+                "信号K线收盘位置",
             ],
             invalidation_checks=[
-                "breakout follow-through after third push",
-                "weak signal bar in a strong trend",
-                "stop distance too large for expected correction",
+                "第三推后出现突破跟进",
+                "强趋势中信号K线太弱",
+                "止损距离大于预期修正空间",
             ],
             display_guardrails=[
-                "Show measurable wedge evidence",
-                "Do not present geometry alone as trade justification",
+                "展示可测量的楔形证据",
+                "不得仅凭几何形状证明交易合理",
             ],
+        ),
+    ]
+    glossary = [
+        GlossaryTerm(
+            english="Signal Bar",
+            chinese="信号K线",
+            abbreviation=None,
+            definition="用于定义入场触发价和失效价的 setup K线，必须结合上下文判断质量。",
+            source_refs=["brooks-trends", "brooks-reversals", "brooks-official-glossary"],
+        ),
+        GlossaryTerm(
+            english="Entry Bar",
+            chinese="入场K线",
+            abbreviation=None,
+            definition="订单被触发并从计划进入执行的 K线，常用于验证触发后的跟进。",
+            source_refs=["brooks-trends", "brooks-official-glossary"],
+        ),
+        GlossaryTerm(
+            english="Always In",
+            chinese="始终在场",
+            abbreviation="AI",
+            definition="合理交易者当前应保持的方向性仓位偏向，直到反向证据足够强。",
+            source_refs=["brooks-trends", "brooks-official-glossary"],
+        ),
+        GlossaryTerm(
+            english="Trading Range",
+            chinese="交易区间",
+            abbreviation="TR",
+            definition="价格在高低边界之间反复双向交易，突破经常需要后续跟进验证。",
+            source_refs=["brooks-trading-ranges", "brooks-official-abbreviations"],
+        ),
+        GlossaryTerm(
+            english="Failed Breakout",
+            chinese="失败突破",
+            abbreviation="FBO",
+            definition="突破关键价位后无法站稳并回到原结构内，常形成被套交易者压力。",
+            source_refs=["brooks-trading-ranges", "brooks-official-abbreviations"],
+        ),
+        GlossaryTerm(
+            english="Measured Move",
+            chinese="等距测量",
+            abbreviation="MM",
+            definition="用既有价格腿投射目标区域，不等于保证到达，只是目标框架。",
+            source_refs=["brooks-trends", "brooks-official-abbreviations"],
+        ),
+        GlossaryTerm(
+            english="Trader's Equation",
+            chinese="交易员方程",
+            abbreviation="TE",
+            definition="用概率、风险和回报共同判断一笔交易是否值得执行。",
+            source_refs=["brooks-trends", "brooks-trading-ranges", "brooks-official-abbreviations"],
+        ),
+        GlossaryTerm(
+            english="High 2 / Low 2",
+            chinese="高二/低二二次入场",
+            abbreviation="H2/L2",
+            definition="趋势回调中的第二次顺势触发，常用于避免第一次尝试失败后的陷阱。",
+            source_refs=["brooks-trends", "brooks-official-abbreviations"],
+        ),
+        GlossaryTerm(
+            english="Wedge",
+            chinese="楔形",
+            abbreviation=None,
+            definition="三次推动、动能变化和通道关系共同构成的反转候选结构。",
+            source_refs=["brooks-reversals", "brooks-official-glossary"],
+        ),
+        GlossaryTerm(
+            english="Final Flag",
+            chinese="最终旗形",
+            abbreviation=None,
+            definition="趋势末端最后一个看似顺势延续的小形态，失败后可能引发更大修正。",
+            source_refs=["brooks-reversals", "brooks-official-glossary"],
         ),
     ]
     return KnowledgeArtifact(
         version="2026-06-30.phase-one",
         sources=sources,
+        chapter_map=chapter_map,
         concepts=concepts,
+        concept_edges=concept_edges,
         setup_dossiers=dossiers,
         case_cards=case_cards,
         reasoning_playbooks=playbooks,
+        glossary=glossary,
     )
 
 

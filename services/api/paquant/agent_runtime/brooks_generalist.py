@@ -39,16 +39,30 @@ class KeyLevel(BaseModel):
     evidence: str
 
 
+class ExecutionPlan(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    order_type_label: str
+    signal_bar_index: int
+    signal_bar_time: str
+    signal_bar_pattern: str
+    trigger_price: float
+    trigger_condition: str
+    entry_tactic: str
+
+
 class ProposedOrder(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     side: Literal["buy", "sell"]
-    order_type: Literal["limit", "market"]
+    order_type: Literal["limit", "market", "stop", "stop_limit"]
+    activation_price: float | None = None
     entry: float
     stop: float
     target: float
     quantity: float
     setup_name: str
+    execution_plan: ExecutionPlan
 
 
 class TraderDecision(BaseModel):
@@ -100,10 +114,7 @@ class BrooksGeneralistTrader:
         default_tool_commands = build_brooks_generalist_drawing_commands()
         knowledge_refs = retrieve_relevant_knowledge(
             knowledge,
-            query=(
-                "always-in pullback channel trader equation failed breakout "
-                "wedge three pushes"
-            ),
+            query=("always-in pullback channel trader equation failed breakout wedge three pushes"),
             limit=5,
         )
         bias: Literal["long", "short", "neutral"] = "long" if last.close > first.open else "short"
@@ -185,7 +196,7 @@ class BrooksGeneralistTrader:
         else:
             proposed_order = _build_contextual_order(candles, bias)
             setup_candidate = proposed_order.setup_name
-            entry_type = f"limit {proposed_order.side}"
+            entry_type = proposed_order.execution_plan.entry_tactic
             stop = proposed_order.stop
             target = proposed_order.target
             position_size_suggestion = 1.0
@@ -199,9 +210,9 @@ class BrooksGeneralistTrader:
         if proposed_order is not None:
             key_levels.append(
                 KeyLevel(
-                    label="pullback entry zone",
+                    label="stop order trigger",
                     price=proposed_order.entry,
-                    evidence="Limit price derived from visible pullback structure",
+                    evidence=proposed_order.execution_plan.trigger_condition,
                 )
             )
 
@@ -211,8 +222,7 @@ class BrooksGeneralistTrader:
                 "XAU 5m is replaying an upward channel with pullbacks staying "
                 "above the prior swing low."
                 if bias != "neutral"
-                else "XAU 5m is replaying a tight neutral range with no clear "
-                "always-in side."
+                else "XAU 5m is replaying a tight neutral range with no clear always-in side."
             ),
             always_in_bias=bias,
             trend_strength=(
@@ -221,8 +231,7 @@ class BrooksGeneralistTrader:
                 else "weak; overlapping bars show limited directional urgency"
             ),
             trading_range_state=(
-                "not a mature range; treat pullbacks as tests until a failed "
-                "breakout appears"
+                "not a mature range; treat pullbacks as tests until a failed breakout appears"
                 if bias != "neutral"
                 else "active range behavior; wait for breakout follow-through "
                 "or a clearer failed breakout"
@@ -253,6 +262,7 @@ class BrooksGeneralistTrader:
                     f"{', '.join(reference.key for reference in knowledge_refs)}."
                 ),
                 (
+                    f"{proposed_order.execution_plan.entry_tactic}. "
                     "Trader's equation uses "
                     f"{abs(proposed_order.entry - proposed_order.stop):.2f} "
                     f"points risk for {abs(proposed_order.target - proposed_order.entry):.2f} "
@@ -295,7 +305,7 @@ def _build_analysis_prompt(
         "draw_fibonacci, and at least one measurement tool such as measure_leg, "
         "compare_legs, count_bars, project_line, or measure_deviation before "
         "finalizing the trade thesis. Do not expose hidden chain-of-thought; "
-        "return only a concise reasoning summary after the tool calls.\n\n"
+        "return only a concise Simplified Chinese reasoning summary after the tool calls.\n\n"
         f"Session facts: first_open={first_open:.2f}, last_close={last_close:.2f}, "
         f"high={high:.2f}, low={low:.2f}, bars={len(candles)}.\n"
         f"Recent candles: {recent_summary}.\n"
@@ -335,8 +345,7 @@ def _build_forced_tool_request(
 
     return ModelRequest(
         prompt=(
-            f"{prompt}\nRelevant Brooks refs: "
-            f"{[reference.key for reference in knowledge_refs]}."
+            f"{prompt}\nRelevant Brooks refs: {[reference.key for reference in knowledge_refs]}."
         ),
         schema_name="TraderDecision",
         tools=build_brooks_tool_definitions(),
@@ -352,40 +361,101 @@ def _build_forced_tool_request(
 def _build_contextual_order(
     candles: list[Candle], bias: Literal["long", "short", "neutral"]
 ) -> ProposedOrder:
-    early_window = candles[: min(13, len(candles))]
-    session_high = max(candle.high for candle in candles)
-    session_low = min(candle.low for candle in candles)
-    early_high = max(candle.high for candle in early_window)
-    early_low = min(candle.low for candle in early_window)
-    session_range = max(session_high - session_low, 1.0)
-    risk = round(min(5.0, max(1.0, session_range * 0.12)), 2)
+    signal_index, signal_candle = _find_signal_bar(candles, bias)
+    tick = 0.1
+    minimum_risk = 1.0
     quantity = 1.0
 
     if bias == "short":
-        entry = round(early_high - min(3.5, max(1.0, risk * 0.7)), 2)
-        stop = round(entry + risk, 2)
+        entry = round(signal_candle.low - tick, 2)
+        stop = round(max(signal_candle.high + tick, entry + minimum_risk), 2)
+        risk = round(abs(stop - entry), 2)
         target = round(entry - (risk * 2), 2)
         return ProposedOrder(
             side="sell",
-            order_type="limit",
+            order_type="stop",
+            activation_price=entry,
             entry=entry,
             stop=stop,
             target=target,
             quantity=quantity,
-            setup_name="Brooks pullback in always-in short context",
+            setup_name="Brooks signal-bar breakout in always-in short context",
+            execution_plan=_build_execution_plan(
+                side="sell",
+                entry=entry,
+                signal_index=signal_index,
+                signal_candle=signal_candle,
+                trigger_side="low",
+            ),
         )
 
-    entry = round(early_low + min(3.5, max(1.0, risk * 0.7)), 2)
-    stop = round(entry - risk, 2)
+    entry = round(signal_candle.high + tick, 2)
+    stop = round(min(signal_candle.low - tick, entry - minimum_risk), 2)
+    risk = round(abs(entry - stop), 2)
     target = round(entry + (risk * 2), 2)
     return ProposedOrder(
         side="buy",
-        order_type="limit",
+        order_type="stop",
+        activation_price=entry,
         entry=entry,
         stop=stop,
         target=target,
         quantity=quantity,
-        setup_name="Brooks pullback in always-in long context",
+        setup_name="Brooks signal-bar breakout in always-in long context",
+        execution_plan=_build_execution_plan(
+            side="buy",
+            entry=entry,
+            signal_index=signal_index,
+            signal_candle=signal_candle,
+            trigger_side="high",
+        ),
+    )
+
+
+def _find_signal_bar(
+    candles: list[Candle], bias: Literal["long", "short", "neutral"]
+) -> tuple[int, Candle]:
+    start_index = max(0, len(candles) - 12)
+    recent = candles[start_index:]
+
+    for offset in range(len(recent) - 1, -1, -1):
+        candle = recent[offset]
+        if bias == "short":
+            if candle.close < candle.open and candle.close_position <= 0.45:
+                return start_index + offset, candle
+        elif candle.close > candle.open and candle.close_position >= 0.55:
+            return start_index + offset, candle
+
+    fallback_index = len(candles) - 1
+    return fallback_index, candles[fallback_index]
+
+
+def _build_execution_plan(
+    *,
+    side: Literal["buy", "sell"],
+    entry: float,
+    signal_index: int,
+    signal_candle: Candle,
+    trigger_side: Literal["high", "low"],
+) -> ExecutionPlan:
+    is_buy = side == "buy"
+    order_name = "buy stop" if is_buy else "sell stop"
+    direction_label = "多头" if is_buy else "空头"
+    trigger_verb = "突破" if is_buy else "跌破"
+    signal_extreme = signal_candle.high if trigger_side == "high" else signal_candle.low
+    trigger_label = "高点" if trigger_side == "high" else "低点"
+    trigger_condition = (
+        f"{trigger_verb}信号K线{trigger_label} {signal_extreme:.2f} 后，"
+        f"以 {entry:.2f} 触发 {order_name}"
+    )
+    return ExecutionPlan(
+        order_type_label=order_name,
+        signal_bar_index=signal_index,
+        signal_bar_time=signal_candle.timestamp.isoformat(),
+        signal_bar_pattern=(f"{direction_label}信号K线：实体方向一致，收盘位置支持 {order_name}"),
+        trigger_price=entry,
+        trigger_condition=trigger_condition,
+        entry_tactic=(f"{order_name} stop order，等待信号K线被触发后才入场；触发前不成交"),
     )
 
 
@@ -407,9 +477,7 @@ def _merge_model_responses(responses: list[ModelResponse]) -> ModelResponse:
     return ModelResponse(
         text=text,
         structured={
-            key: value
-            for response in responses
-            for key, value in response.structured.items()
+            key: value for response in responses for key, value in response.structured.items()
         },
         tool_calls=[tool_call for response in responses for tool_call in response.tool_calls],
         usage=ModelUsage(

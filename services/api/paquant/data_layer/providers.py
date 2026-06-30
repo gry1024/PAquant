@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import urllib.error
 import urllib.request
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -77,7 +79,7 @@ class LiveMarketFeed(BaseModel):
 
 class UrllibTextTransport:
     def fetch_text(self, url: str, *, timeout: float) -> str:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with _urlopen_with_local_proxy_fallback(url, timeout=timeout) as response:
             return response.read().decode("utf-8")
 
 
@@ -87,7 +89,7 @@ class UrllibJsonTransport:
             url,
             headers={"User-Agent": "PAquant/0.1 (+https://github.com/gry1024/PAquant)"},
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _urlopen_with_local_proxy_fallback(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
 
@@ -145,7 +147,7 @@ class YahooGoldFuturesChartProvider:
         self,
         *,
         transport: JsonTransport | None = None,
-        timeout_seconds: float = 30,
+        timeout_seconds: float = 6,
     ) -> None:
         self.transport = transport or UrllibJsonTransport()
         self.timeout_seconds = timeout_seconds
@@ -235,6 +237,39 @@ def _first_chart_result(raw: dict) -> dict:
     if not results:
         raise ValueError("Yahoo chart response missing result")
     return results[0]
+
+
+def _urlopen_with_local_proxy_fallback(
+    request: str | urllib.request.Request,
+    *,
+    timeout: float,
+):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.URLError:
+        if not _uses_local_proxy_env():
+            raise
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        return opener.open(_clone_request(request), timeout=timeout)
+
+
+def _uses_local_proxy_env() -> bool:
+    for key in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy"):
+        value = os.environ.get(key, "")
+        if "127.0.0.1" in value or "localhost" in value:
+            return True
+    return False
+
+
+def _clone_request(request: str | urllib.request.Request) -> str | urllib.request.Request:
+    if isinstance(request, str):
+        return request
+    return urllib.request.Request(
+        request.full_url,
+        data=request.data,
+        headers=dict(request.header_items()),
+        method=request.get_method(),
+    )
 
 
 def _parse_yahoo_chart_candles(

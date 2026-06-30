@@ -145,6 +145,15 @@ export interface SimulatedOrder {
   side: "buy" | "sell";
   order_type: "limit" | "market" | "stop" | "stop_limit";
   activation_price?: number | null;
+  execution_plan?: {
+    order_type_label: string;
+    signal_bar_index: number;
+    signal_bar_time: string;
+    signal_bar_pattern: string;
+    trigger_price: number;
+    trigger_condition: string;
+    entry_tactic: string;
+  };
   entry: number;
   filled_entry?: number | null;
   stop: number;
@@ -305,6 +314,9 @@ export interface TraderProfile {
   riskStyle: string;
   toolPermissions: string[];
   knowledgePolicy: string;
+  agentFile: string;
+  sharedKnowledgeFiles: string[];
+  sharedKnowledgeSummary: string;
   recentAction: string;
   performance: {
     equity: number;
@@ -331,6 +343,20 @@ export interface KnowledgeConcept {
   questions: string[];
 }
 
+export interface KnowledgeChapter {
+  sourceId: string;
+  part: string;
+  title: string;
+  summary: string;
+  conceptKeys: string[];
+}
+
+export interface ConceptEdge {
+  source: string;
+  target: string;
+  relation: string;
+}
+
 export interface SetupDossier {
   key: string;
   name: string;
@@ -355,6 +381,20 @@ export interface CaseCard {
   traderThinking: string;
   expectedFollowThrough: string;
   failureScenario: string;
+  diagram: {
+    kind: "wedge" | "failed_breakout";
+    caption: string;
+    points: Array<{
+      label: string;
+      x: number;
+      y: number;
+      role: "push" | "breakout" | "reentry" | "target" | "failure";
+    }>;
+    levels: Array<{
+      label: string;
+      y: number;
+    }>;
+  };
 }
 
 export interface ReasoningPlaybook {
@@ -366,13 +406,24 @@ export interface ReasoningPlaybook {
   displayGuardrails: string[];
 }
 
+export interface GlossaryTerm {
+  english: string;
+  chinese: string;
+  abbreviation: string | null;
+  definition: string;
+  sourceRefs: string[];
+}
+
 export interface KnowledgeBrowser {
   version: string;
   sources: KnowledgeSource[];
+  chapterMap: KnowledgeChapter[];
   concepts: KnowledgeConcept[];
+  conceptEdges: ConceptEdge[];
   setupDossiers: SetupDossier[];
   caseCards: CaseCard[];
   reasoningPlaybooks: ReasoningPlaybook[];
+  glossary: GlossaryTerm[];
 }
 
 export interface WorkbenchFixture {

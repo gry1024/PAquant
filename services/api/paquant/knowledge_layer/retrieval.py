@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from paquant.knowledge_layer.compiler import KnowledgeArtifact
 
-_TOKEN_PATTERN = re.compile(r"[a-z0-9']+")
+_TOKEN_PATTERN = re.compile(r"[a-z0-9']+|[\u4e00-\u9fff]+")
 
 
 class KnowledgeReference(BaseModel):
@@ -33,7 +33,9 @@ def retrieve_relevant_knowledge(
 
     references: list[KnowledgeReference] = []
     for concept in artifact.concepts:
-        score = _score(query_tokens, " ".join([concept.name, concept.summary, *concept.questions]))
+        score = _score(
+            query_tokens, " ".join([concept.key, concept.name, concept.summary, *concept.questions])
+        )
         if score:
             references.append(
                 KnowledgeReference(
@@ -50,6 +52,7 @@ def retrieve_relevant_knowledge(
         text = " ".join(
             [
                 dossier.name,
+                dossier.key,
                 dossier.context,
                 *dossier.observations,
                 *dossier.measurements,
@@ -78,6 +81,8 @@ def retrieve_relevant_knowledge(
         text = " ".join(
             [
                 case.title,
+                case.key,
+                case.diagram.kind,
                 case.chart_context,
                 case.pattern_interpretation,
                 case.trader_thinking,
@@ -103,6 +108,7 @@ def retrieve_relevant_knowledge(
         text = " ".join(
             [
                 playbook.name,
+                playbook.key,
                 *playbook.questions,
                 *playbook.required_observations,
                 *playbook.invalidation_checks,

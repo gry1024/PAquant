@@ -5,13 +5,22 @@ def test_core_knowledge_contains_brooks_taste():
     artifact = compile_core_knowledge()
     keys = {concept.key for concept in artifact.concepts}
 
-    assert {"context", "always_in", "three_push", "traders_equation"} <= keys
+    assert {
+        "context",
+        "always_in",
+        "signal_bar",
+        "entry_bar",
+        "three_push",
+        "traders_equation",
+    } <= keys
     assert all(source.title and source.source_type == "local_pdf" for source in artifact.sources)
     assert all(source.chapter_refs for source in artifact.sources)
     assert all("raw_text" not in concept.model_fields_set for concept in artifact.concepts)
     three_push = next(concept for concept in artifact.concepts if concept.key == "three_push")
-    assert "spacing" in three_push.summary
-    assert "momentum" in three_push.summary
+    assert "间距" in three_push.summary
+    assert "动能" in three_push.summary
+    assert artifact.chapter_map
+    assert artifact.concept_edges
 
 
 def test_committed_artifact_loads_and_has_setup_dossiers():
@@ -19,8 +28,13 @@ def test_committed_artifact_loads_and_has_setup_dossiers():
 
     assert artifact.version == "2026-06-30.phase-one"
     assert {dossier.key for dossier in artifact.setup_dossiers} >= {
+        "always_in_pullback",
+        "second_entry",
+        "breakout_pullback",
+        "trading_range_scalp",
         "wedge_reversal",
         "failed_breakout",
+        "major_trend_reversal",
     }
 
 
@@ -34,16 +48,26 @@ def test_core_knowledge_contains_case_cards_and_playbooks():
     case = next(case for case in artifact.case_cards if case.key == "three_push_channel_overshoot")
     assert case.source_refs == ["brooks-reversals"]
     assert case.failure_scenario
-    assert "expected correction" in case.expected_follow_through
+    assert "预期修正" in case.expected_follow_through
 
     playbook = next(
         playbook for playbook in artifact.reasoning_playbooks if playbook.key == "trade_or_no_trade"
     )
-    assert "What is the current market state?" in playbook.questions
-    assert any(
-        "Raw hidden chain-of-thought" in guardrail
-        for guardrail in playbook.display_guardrails
-    )
+    assert "当前市场状态是什么？" in playbook.questions
+    assert any("chain-of-thought" in guardrail for guardrail in playbook.display_guardrails)
+
+
+def test_case_cards_include_structured_visual_diagrams():
+    artifact = compile_core_knowledge()
+
+    for case in artifact.case_cards:
+        assert case.diagram.kind in {"wedge", "failed_breakout"}
+        assert case.diagram.caption
+        assert len(case.diagram.points) >= 4
+        assert case.diagram.levels
+        assert all(point.label for point in case.diagram.points)
+        assert all(0 <= point.x <= 100 for point in case.diagram.points)
+        assert all(0 <= point.y <= 100 for point in case.diagram.points)
 
 
 def test_setup_dossiers_preserve_trade_management_detail():
@@ -57,3 +81,14 @@ def test_setup_dossiers_preserve_trade_management_detail():
     assert dossier.targets
     assert dossier.management
     assert "failed_breakout" in dossier.nearby_setups
+
+
+def test_glossary_preserves_checked_chinese_terms():
+    artifact = compile_core_knowledge()
+    terms = {term.english: term for term in artifact.glossary}
+
+    assert terms["Signal Bar"].chinese == "信号K线"
+    assert terms["Entry Bar"].chinese == "入场K线"
+    assert terms["Trading Range"].abbreviation == "TR"
+    assert terms["Failed Breakout"].abbreviation == "FBO"
+    assert "brooks-official" in " ".join(terms["Signal Bar"].source_refs)

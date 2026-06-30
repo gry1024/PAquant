@@ -243,27 +243,6 @@ The system should be built around these principles:
 - A trade is justified by trader's equation: probability, risk, and reward.
 - Wedges and three-push patterns are not geometry tricks. They express repeated attempts, momentum change, trader exhaustion, and potential correction.
 
-## 5. Deployment Direction
-
-### 5.1 First Phase Recommendation
-
-Use CloudBase for the web deployment and keep AI/backend simulation local.
-
-Reasons:
-
-- CloudBase MCP is already authenticated and bound to the target environment.
-- CloudBase `manageApps` can deploy the web app to an independent subdomain.
-- Local backend is better for PDF compilation, model experiments, historical data ingestion, and fast iteration.
-- SQLite keeps the first loop simple.
-
-### 5.2 Alternative: Vercel + Supabase
-
-Vercel + Supabase remains a strong long-term option:
-
-- Vercel is excellent for GitHub preview deployments and AI Gateway.
-- Supabase is excellent for Postgres, Realtime, Storage, vectors, and open-source SaaS patterns.
-
-The first phase should not require it. We can design interfaces so CloudBase/SQLite can migrate to Vercel/Supabase later.
 
 ## 6. Development Environment
 
@@ -302,9 +281,6 @@ Minimum test categories:
 - Frontend component tests.
 - Playwright visual checks for the chart workbench.
 - Secret scanning before committing.
-
-Acceptance for phase one:
-
 - The local app can load XAU 5-minute historical data.
 - The web workbench displays the chart.
 - The AI trader can issue structured drawing/measurement commands.
@@ -340,13 +316,3 @@ These should be resolved before full implementation:
    - Current recommendation: first compile chapter/source map and concept graph, then build setup dossiers iteratively.
 7. Whether to enable CloudBase database in phase one.
    - Current recommendation: not initially; sync/export later.
-
-## 10. Non-Goals for Phase One
-
-- No live trading.
-- No MT5 order execution.
-- No mobile-first UI.
-- No full TradingView clone.
-- No raw PDF upload to public git.
-- No hidden unmanaged model spending logic.
-- No tightly coupled monolith.
