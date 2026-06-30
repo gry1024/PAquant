@@ -1,7 +1,7 @@
 export interface Candle {
   timestamp: string;
   symbol: "XAUUSD";
-  timeframe: "5m";
+  timeframe: "5m" | "quote";
   open: number;
   high: number;
   low: number;
@@ -241,15 +241,18 @@ export interface LiveMarketSource {
   id: string;
   label: string;
   instrumentSymbol: "XAUUSD" | string;
-  instrumentKind: "spot" | "futures_proxy" | string;
+  instrumentKind: "spot" | "spot_quote" | "futures_proxy" | string;
   isSpot: boolean;
   isMock: boolean;
+  historyCompleteness?: "intraday_5m" | "latest_quote_only" | string;
   latency: "live" | "near_realtime" | "delayed" | string;
 }
 
 export interface LiveMarketQuote {
   symbol: "XAUUSD";
   price: number;
+  bid?: number;
+  ask?: number;
   timestamp: string;
   providerSymbol: string;
 }

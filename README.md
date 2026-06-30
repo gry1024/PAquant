@@ -84,18 +84,21 @@ Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyCo
 
 ## CloudBase Deployment
 
-The frontend is still deployed as CloudBase static hosting. The live API needs CloudBase Run enabled in the same environment before it can be deployed:
+The public preview uses CloudBase static hosting for the frontend and a CloudBase SCF HTTP access service for the live API:
+
+- Static preview: `https://paquant-groy-env-d5g7okht7dcd202fe.webapps.tcloudbase.com`
+- API service: `https://groy-env-d5g7okht7dcd202fe-1401196005.ap-shanghai.app.tcloudbase.com/api`
+- Function: `paquantScfApi`
+
+The API should be deployed from `functions/paquant-api`:
 
 ```powershell
-pnpm --package=@cloudbase/cli dlx tcb cloudrun deploy `
+pnpm --package=@cloudbase/cli dlx tcb fn deploy paquantScfApi `
   --env-id groy-env-d5g7okht7dcd202fe `
-  --serviceName paquant-api `
-  --port 8000 `
-  --source . `
   --force
 ```
 
-The repository includes a root `Dockerfile` and `.dockerignore` for that API deployment. Do not copy `.env.local` into the image. Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONSHOT_API_KEY` as CloudBase Run environment variables in the console.
+Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONSHOT_API_KEY` as CloudBase function environment variables. Do not commit those values. The CloudBase environment currently blocks Yahoo Finance 5-minute chart endpoints with HTTP 429, so the deployed API falls back to real XAU quote providers and marks that response as `historyCompleteness: "latest_quote_only"`. The AI trader refuses to think, draw, or place simulated orders unless a full live 5-minute candle history is available.
 
 ## Implemented Phase-One Slice
 

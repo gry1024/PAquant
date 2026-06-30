@@ -1,11 +1,28 @@
 import { describe, expect, test, vi } from "vitest";
 import fixtureData from "../fixtures/paquant-demo.json";
-import { loadWorkbenchFixture, startAgentRun } from "./workbenchData";
+import { loadWorkbenchFixture, resolveApiUrl, startAgentRun } from "./workbenchData";
 import type { WorkbenchFixture } from "./workbenchTypes";
 
 const fixture = fixtureData as WorkbenchFixture;
 
 describe("loadWorkbenchFixture", () => {
+  test("uses the CloudBase HTTP service API when hosted on CloudBase static hosting", () => {
+    expect(
+      resolveApiUrl(
+        "/market/xau/live",
+        "https://paquant-groy-env-d5g7okht7dcd202fe.webapps.tcloudbase.com/"
+      )
+    ).toBe(
+      "https://groy-env-d5g7okht7dcd202fe-1401196005.ap-shanghai.app.tcloudbase.com/api/market/xau/live"
+    );
+  });
+
+  test("uses the local Vite proxy API outside CloudBase static hosting", () => {
+    expect(resolveApiUrl("/market/xau/live", "http://localhost:5173/")).toBe(
+      "/api/market/xau/live"
+    );
+  });
+
   test("loads live market data instead of demo fixture data", async () => {
     const livePayload = {
       source: {

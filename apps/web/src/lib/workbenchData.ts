@@ -6,9 +6,11 @@ import type {
   WorkbenchMeta
 } from "./workbenchTypes";
 
-const API_LIVE_MARKET_URL = "/api/market/xau/live";
-const API_MODEL_PROVIDERS_URL = "/api/model-providers";
-const API_AGENT_RUNS_URL = "/api/agent-runs";
+const CLOUDBASE_HTTP_API_BASE_URL =
+  "https://groy-env-d5g7okht7dcd202fe-1401196005.ap-shanghai.app.tcloudbase.com/api";
+const API_LIVE_MARKET_PATH = "/market/xau/live";
+const API_MODEL_PROVIDERS_PATH = "/model-providers";
+const API_AGENT_RUNS_PATH = "/agent-runs";
 const fixture = fixtureData as WorkbenchFixture;
 const fallbackProviders: ModelProviderChoice[] = [
   {
@@ -72,7 +74,7 @@ const fallbackProviders: ModelProviderChoice[] = [
 export async function loadWorkbenchFixture(
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<WorkbenchFixture> {
-  const response = await fetcher(API_LIVE_MARKET_URL);
+  const response = await fetcher(resolveApiUrl(API_LIVE_MARKET_PATH));
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
@@ -83,7 +85,7 @@ export async function loadModelProviders(
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<ModelProviderChoice[]> {
   try {
-    const response = await fetcher(API_MODEL_PROVIDERS_URL);
+    const response = await fetcher(resolveApiUrl(API_MODEL_PROVIDERS_PATH));
     if (!response.ok) {
       throw new Error(`PAquant API returned ${response.status}`);
     }
@@ -104,7 +106,7 @@ export async function startAgentRun(
   },
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<WorkbenchFixture> {
-  const response = await fetcher(API_AGENT_RUNS_URL, {
+  const response = await fetcher(resolveApiUrl(API_AGENT_RUNS_PATH), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ traderId, modelProvider })
@@ -113,6 +115,26 @@ export async function startAgentRun(
     throw new Error(await readApiError(response));
   }
   return (await response.json()) as WorkbenchFixture;
+}
+
+export function resolveApiUrl(path: string, currentHref = globalThis.location?.href): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (isCloudBaseStaticHost(currentHref)) {
+    return `${CLOUDBASE_HTTP_API_BASE_URL}${normalizedPath}`;
+  }
+  return `/api${normalizedPath}`;
+}
+
+function isCloudBaseStaticHost(currentHref?: string): boolean {
+  if (!currentHref) {
+    return false;
+  }
+  try {
+    const { hostname } = new URL(currentHref);
+    return hostname.endsWith(".webapps.tcloudbase.com") || hostname.endsWith(".tcloudbaseapp.com");
+  } catch {
+    return false;
+  }
 }
 
 function liveMeta(payload: LiveMarketPayload): WorkbenchMeta {

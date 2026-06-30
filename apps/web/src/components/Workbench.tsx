@@ -82,10 +82,15 @@ export function Workbench({
     ? `${selectedProvider.name} / ${selectedProvider.model}`
     : "No model API configured";
   const dataSource = fixture.meta?.dataSource;
-  const marketModeLabel =
-    dataSource?.instrumentKind === "futures_proxy"
+  const isQuoteOnly = dataSource?.historyCompleteness === "latest_quote_only";
+  const marketModeLabel = isQuoteOnly
+    ? "Live XAU spot quote only; full 5m history unavailable"
+    : dataSource?.instrumentKind === "futures_proxy"
       ? "5m live feed: GC=F futures proxy, not spot XAU"
       : "5m live feed";
+  const marketCountLabel = isQuoteOnly
+    ? `${fixture.candles.length} quote${fixture.candles.length === 1 ? "" : "s"}`
+    : `${fixture.candles.length} bars`;
 
   useEffect(() => {
     if (!isStreaming) {
@@ -160,7 +165,7 @@ export function Workbench({
             <span>
               <strong>Last</strong> {latest?.close.toFixed(2)}
             </span>
-            <span>{fixture.candles.length} bars</span>
+            <span>{marketCountLabel}</span>
             {fixture.higherTimeframeContext.map((context) => (
               <span className="timeframe-chip" title={context.summary} key={context.timeframe}>
                 {formatTimeframe(context.timeframe)} {context.bias}

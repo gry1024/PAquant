@@ -4,5 +4,17 @@
   "framework": "static",
   "frontendRoot": "apps/web",
   "buildPath": "dist",
-  "deployPath": "/"
+  "deployPath": "/",
+  "functionRoot": "functions",
+  "functions": [
+    {
+      "name": "paquantScfApi",
+      "dir": "functions/paquant-api",
+      "runtime": "Nodejs20.19",
+      "handler": "event.main",
+      "timeout": 60,
+      "memorySize": 512,
+      "description": "PAquant live market and AI trader SCF API"
+    }
+  ]
 }

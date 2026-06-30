@@ -181,3 +181,94 @@ test("renders live market data first and runs the AI trader only after user star
     within(screen.getByLabelText("AI trader analysis")).getByText("Wedge/Reversal Specialist")
   ).toBeInTheDocument();
 });
+
+test("labels quote-only live data and surfaces the AI trader history guard", async () => {
+  const quoteOnlyPayload: LiveMarketPayload = {
+    source: {
+      id: "gold_api_xau_spot_quote",
+      label: "Gold API XAU/USD realtime spot quote",
+      instrumentSymbol: "XAU",
+      instrumentKind: "spot_quote",
+      isSpot: true,
+      isMock: false,
+      historyCompleteness: "latest_quote_only",
+      latency: "realtime_quote"
+    },
+    quote: {
+      symbol: "XAUUSD",
+      price: 3970.4,
+      timestamp: "2026-06-30T03:23:49Z",
+      providerSymbol: "XAU"
+    },
+    candles: [
+      {
+        timestamp: "2026-06-30T03:23:49Z",
+        symbol: "XAUUSD",
+        timeframe: "quote",
+        open: 3970.4,
+        high: 3970.4,
+        low: 3970.4,
+        close: 3970.4,
+        volume: 0,
+        body: 0,
+        range: 0,
+        close_position: 0.5
+      }
+    ]
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/market/xau/live") {
+        return { ok: true, json: async () => quoteOnlyPayload };
+      }
+      if (url === "/api/model-providers") {
+        return {
+          ok: true,
+          json: async () => ({
+            providers: [
+              {
+                id: "deepseek",
+                name: "DeepSeek",
+                model: "deepseek-chat",
+                apiKeyEnv: "DEEPSEEK_API_KEY",
+                available: true,
+                capabilities: {
+                  text: true,
+                  vision: false,
+                  structured_output: true,
+                  tool_calling: true,
+                  context_window: 64000
+                }
+              }
+            ]
+          })
+        };
+      }
+      if (url === "/api/agent-runs") {
+        return {
+          ok: false,
+          json: async () => ({
+            detail:
+              "live AI trader requires full 5m candle history before thinking, drawing, or placing simulated orders"
+          })
+        };
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    })
+  );
+
+  render(<App />);
+
+  expect(
+    await screen.findByText(/Live XAU spot quote only; full 5m history unavailable/i)
+  ).toBeInTheDocument();
+  expect(screen.getByText("Gold API XAU/USD realtime spot quote")).toBeInTheDocument();
+  expect(screen.getByText("1 quote")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: /Start AI trader/i }));
+
+  expect(await screen.findByText(/requires full 5m candle history/i)).toBeInTheDocument();
+  expect(screen.queryByText("LIMIT")).not.toBeInTheDocument();
+});
