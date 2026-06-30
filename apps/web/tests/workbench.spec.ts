@@ -4,8 +4,8 @@ test("renders the live desktop trading workstation", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /PAquant XAU workstation/i })).toBeVisible();
-  await expect(page.getByText("Live market API")).toBeVisible();
-  await expect(page.getByText(/live feed/i)).toBeVisible();
+  await expect(page.getByText(/Live market API|Browser 5m data \+ live quote/i)).toBeVisible();
+  await expect(page.getByText(/live feed|5m XAU history/i)).toBeVisible();
   await expect(page.getByLabel("AI trader analysis").getByText("AI trader idle")).toBeVisible();
   await expect(page.getByText("Last price")).toBeVisible();
   await expect(page.getByLabel("Model API")).not.toHaveValue("mock");

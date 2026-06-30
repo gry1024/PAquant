@@ -56,8 +56,16 @@ export default function App() {
       fixture={workbenchFixture}
       traderProfiles={traderProfiles}
       modelProviders={modelProviders}
-      onStartAgentRun={(traderId, modelProvider) => startAgentRun({ traderId, modelProvider })}
-      sourceLabel={workbenchFixture.meta?.source === "live" ? "Live market API" : "Local API"}
+      onStartAgentRun={(traderId, modelProvider, market) =>
+        startAgentRun({ traderId, modelProvider, market })
+      }
+      sourceLabel={
+        workbenchFixture.meta?.dataSource?.historyCompleteness === "historical_5m"
+          ? "Browser 5m data + live quote"
+          : workbenchFixture.meta?.source === "live"
+            ? "Live market API"
+            : "Local API"
+      }
     />
   );
 }

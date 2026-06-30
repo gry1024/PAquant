@@ -185,6 +185,110 @@ describe("paquant CloudBase HTTP API", () => {
     assert.match(response.body, /full 5m candle history/);
   });
 
+  test("agent run accepts browser-loaded ForexSB 5m candles instead of refetching market data", async () => {
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    const calls = [];
+    const response = await handleRequest({
+      method: "POST",
+      url: "/api/agent-runs",
+      body: JSON.stringify({
+        traderId: "brooks-generalist",
+        modelProvider: "deepseek",
+        market: {
+          source: {
+            id: "forexsb_dukascopy_xauusd_m5_browser",
+            label: "ForexSB Dukascopy XAUUSD M5 history",
+            instrumentSymbol: "XAUUSD",
+            instrumentKind: "spot_history",
+            isSpot: true,
+            isMock: false,
+            historyCompleteness: "historical_5m",
+            latency: "periodic_historical"
+          },
+          quote: {
+            symbol: "XAUUSD",
+            price: 3970.25,
+            timestamp: "2026-06-30T04:15:00Z",
+            providerSymbol: "XAU"
+          },
+          candles: clientCandles(24)
+        }
+      }),
+      fetchImpl: async (url) => {
+        calls.push(String(url));
+        assert.match(String(url), /deepseek/);
+        return okJson(modelResponse([
+          {
+            id: "draw",
+            function: {
+              name: "draw_trendline",
+              arguments: JSON.stringify({
+                id: "client-live-trendline",
+                label: "Client 5m trend line",
+                start: { time_index: 0, price: 3950 },
+                end: { time_index: 23, price: 3972 }
+              })
+            }
+          },
+          {
+            id: "measure",
+            function: {
+              name: "measure_leg",
+              arguments: JSON.stringify({
+                start: { time_index: 0, price: 3950 },
+                end: { time_index: 23, price: 3972 }
+              })
+            }
+          }
+        ]));
+      }
+    });
+
+    assert.equal(response.statusCode, 201);
+    assert.equal(calls.length, 1);
+    const payload = JSON.parse(response.body);
+    assert.equal(payload.meta.dataSource.id, "forexsb_dukascopy_xauusd_m5_browser");
+    assert.equal(payload.candles.length, 24);
+    assert.deepEqual(
+      payload.chartObjects
+        .filter((object) => object.kind === "trade_marker")
+        .map((object) => object.marker_type),
+      ["entry", "stop", "target"]
+    );
+    assert.equal(payload.orders[0].quantity, 1);
+    assert.match(payload.orders[0].reason, /Real DeepSeek API returned tool calls/);
+  });
+
+  test("agent run rejects browser-loaded candles that are mock or too short", async () => {
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    const response = await handleRequest({
+      method: "POST",
+      url: "/api/agent-runs",
+      body: JSON.stringify({
+        modelProvider: "deepseek",
+        market: {
+          source: {
+            id: "mock",
+            label: "mock",
+            instrumentSymbol: "XAUUSD",
+            instrumentKind: "spot_history",
+            isSpot: true,
+            isMock: true,
+            historyCompleteness: "historical_5m",
+            latency: "test"
+          },
+          candles: clientCandles(10)
+        }
+      }),
+      fetchImpl: async () => {
+        throw new Error("model should not be called");
+      }
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.match(response.body, /non-mock 5m candles/);
+  });
+
   test("agent run uses real provider tool calls and returns trade markers", async () => {
     process.env.DEEPSEEK_API_KEY = "test-key";
     const modelResponses = [
@@ -250,4 +354,27 @@ function modelResponse(toolCalls) {
     choices: [{ message: { content: "Model reasoning summary.", tool_calls: toolCalls } }],
     usage: { prompt_tokens: 100, completion_tokens: 20 }
   };
+}
+
+function clientCandles(count) {
+  return Array.from({ length: count }, (_, index) => {
+    const open = 3950 + index * 0.7;
+    const close = open + (index % 2 === 0 ? 0.5 : -0.25);
+    const high = Math.max(open, close) + 1;
+    const low = Math.min(open, close) - 1;
+    const range = high - low;
+    return {
+      timestamp: new Date(Date.UTC(2026, 5, 30, 0, index * 5)).toISOString(),
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      open,
+      high,
+      low,
+      close,
+      volume: 10 + index,
+      body: Math.abs(close - open),
+      range,
+      close_position: (close - low) / range
+    };
+  });
 }

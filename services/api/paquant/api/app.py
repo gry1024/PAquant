@@ -13,6 +13,7 @@ from paquant.agent_runtime.registry import list_trader_profiles
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema
 from paquant.data_layer.providers import YahooGoldFuturesChartProvider
+from paquant.data_layer.schemas import Candle
 from paquant.export_fixture import build_demo_fixture, build_knowledge_browser_payload
 from paquant.model_provider.base import ModelProvider
 from paquant.model_provider.openai_compatible import OpenAICompatibleProvider
@@ -22,6 +23,7 @@ from paquant.model_provider.registry import build_default_provider_registry
 class AgentRunRequest(BaseModel):
     trader_id: str = Field(default="brooks-generalist", alias="traderId")
     model_provider: str = Field(default="deepseek", alias="modelProvider")
+    market: dict[str, Any] | None = None
 
 
 def create_app(
@@ -85,8 +87,14 @@ def create_app(
     @app.post("/api/agent-runs", status_code=201)
     def create_agent_run(request: AgentRunRequest) -> dict[str, Any]:
         provider = _build_model_provider(request.model_provider, provider_overrides)
-        live_feed = live_provider.load_candles("XAUUSD", "5m")
-        payload = build_demo_fixture(model_provider=provider, candles=live_feed.candles)
+        if request.market is not None:
+            candles = _client_market_candles(request.market)
+            data_source = _client_market_source(request.market)
+        else:
+            live_feed = live_provider.load_candles("XAUUSD", "5m")
+            candles = live_feed.candles
+            data_source = live_feed.source.model_dump(mode="json", by_alias=True)
+        payload = build_demo_fixture(model_provider=provider, candles=candles)
         run_id = _persist_workbench_payload(repository, payload)
         return _with_meta(
             payload,
@@ -95,7 +103,7 @@ def create_app(
             repository=repository,
             started_by="user",
             agent_status="completed",
-            data_source=live_feed.source.model_dump(mode="json", by_alias=True),
+            data_source=data_source,
         )
 
     @app.post("/api/workbench/demo/runs", status_code=201)
@@ -105,6 +113,36 @@ def create_app(
         return _with_meta(payload, persisted=True, analysis_run_id=run_id, repository=repository)
 
     return app
+
+
+def _client_market_candles(market: dict[str, Any]) -> list[Candle]:
+    source = market.get("source") or {}
+    raw_candles = market.get("candles")
+    if source.get("isMock") is True or not isinstance(raw_candles, list) or len(raw_candles) < 20:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "agent run requires non-mock 5m candles from the visible chart "
+                "before model tools can run"
+            ),
+        )
+    try:
+        return [Candle.model_validate(candle) for candle in raw_candles]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"invalid market candles: {exc}") from exc
+
+
+def _client_market_source(market: dict[str, Any]) -> dict[str, Any]:
+    source = dict(market.get("source") or {})
+    source.setdefault("id", "browser_xauusd_5m")
+    source.setdefault("label", "Browser supplied XAUUSD 5m candles")
+    source.setdefault("instrumentSymbol", "XAUUSD")
+    source.setdefault("instrumentKind", "spot_history")
+    source.setdefault("isSpot", True)
+    source["isMock"] = False
+    source.setdefault("historyCompleteness", "historical_5m")
+    source.setdefault("latency", "browser_direct")
+    return source
 
 
 def _model_provider_payloads() -> list[dict[str, Any]]:

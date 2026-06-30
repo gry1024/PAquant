@@ -10,7 +10,7 @@ The current repository contains the phase-one vertical slice for local simulatio
 
 - Frontend: CloudBase public preview, service name `paquant`.
 - First phase: web-only, desktop-first.
-- Data: live XAU 5-minute market feed first, currently labeled when a provider is a futures proxy rather than spot XAU.
+- Data: browser-loaded ForexSB/Dukascopy XAUUSD M5 history plus a real XAU spot quote overlay from the CloudBase API.
 - Storage: local SQLite first, Postgres-compatible schema boundaries.
 - AI: provider adapters for DeepSeek, Qwen, MiniMax, Kimi, and future OpenAI.
 - Trading: simulation only in phase one; Exness MT5 live trading is a later phase.
@@ -64,7 +64,7 @@ Run the frontend in a second shell:
 pnpm dev
 ```
 
-Vite proxies `/api` to `http://127.0.0.1:8000` during local development. The live workstation requires `/api/market/xau/live`; it shows an explicit live-data error instead of silently falling back to committed demo data.
+Vite proxies `/api` to `http://127.0.0.1:8000` during local development. The workstation requires `/api/market/xau/live` for real quote/provider metadata and loads `https://data.forexsb.com/datafeed/data/dukascopy/XAUUSD5.lb.gz` in the browser for visible XAUUSD M5 candles. It shows explicit data-source labels instead of silently falling back to committed demo data.
 
 Verify the frontend:
 
@@ -98,12 +98,20 @@ pnpm --package=@cloudbase/cli dlx tcb fn deploy paquantScfApi `
   --force
 ```
 
-Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONSHOT_API_KEY` as CloudBase function environment variables. Do not commit those values. The CloudBase environment currently blocks Yahoo Finance 5-minute chart endpoints with HTTP 429, so the deployed API falls back to real XAU quote providers and marks that response as `historyCompleteness: "latest_quote_only"`. The AI trader refuses to think, draw, or place simulated orders unless a full live 5-minute candle history is available.
+Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONSHOT_API_KEY` as CloudBase function environment variables. Do not commit those values.
+
+The CloudBase environment currently blocks Yahoo Finance 5-minute chart endpoints with HTTP 429 and cannot download the full ForexSB M5 file within the function timeout. The deployed product therefore uses this split path:
+
+- `/api/market/xau/live` returns real XAU spot quote metadata from CloudBase-accessible providers.
+- The browser downloads and parses ForexSB/Dukascopy `XAUUSD5.lb.gz`, then displays the latest 240 XAUUSD M5 candles.
+- When the user clicks `Start AI trader`, the frontend sends the visible non-mock M5 candles, source metadata, and quote to `/api/agent-runs`.
+- The SCF function validates the candles before calling the selected model API, executing tool calls, drawing chart objects, and creating a simulated order with entry, stop, target, quantity, and reason.
 
 ## Implemented Phase-One Slice
 
 - XAUUSD 5-minute deterministic replay data for tests and audit replay.
-- Live XAU market feed endpoint with source metadata, including explicit futures-proxy labeling when the source is not spot XAU.
+- Real XAU quote endpoint with source metadata and explicit quote-only labeling.
+- Browser-side ForexSB/Dukascopy XAUUSD M5 parser for visible non-mock chart candles.
 - Derived M15/H1 auxiliary context from the primary XAU 5-minute replay.
 - Brooks structured knowledge artifact with source metadata.
 - Deterministic Brooks knowledge retrieval surfaced in the AI trader audit trail.
@@ -112,7 +120,7 @@ Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONS
 - Stop-limit order state, risk guards, and configurable spread/slippage execution costs.
 - SQLite audit/replay schema and repository boundary.
 - Mockable model provider boundary and real API adapters for DeepSeek, Qwen, MiniMax, and Kimi.
-- Brooks Generalist AI trader requires tool calls in live mode, executes returned drawing tools, and rejects mock provider selection for live agent runs.
+- Brooks Generalist AI trader requires user start, validates visible non-mock M5 candles, calls the selected real model API, executes returned drawing tools, and rejects mock provider selection for live agent runs.
 - Brooks Generalist trade and no-trade decision paths.
 - Local FastAPI product API for health checks, live market payloads, provider status, and persisted user-started agent runs.
 - TradingView-like desktop web workstation with candlesticks, drawing overlay, bar-by-bar stream controls, visible model API selection, analysis, knowledge refs, simulated orders, journal, replay snapshots, and performance panels.

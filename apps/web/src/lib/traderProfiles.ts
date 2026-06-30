@@ -1,6 +1,7 @@
 import type { TraderProfile } from "./workbenchTypes";
+import { resolveApiUrl } from "./workbenchData";
 
-const API_TRADERS_URL = "/api/traders";
+const API_TRADERS_PATH = "/traders";
 
 const fallbackProfiles: TraderProfile[] = [
   {
@@ -201,7 +202,7 @@ export async function loadTraderProfiles(
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<TraderProfile[]> {
   try {
-    const response = await fetcher(API_TRADERS_URL);
+    const response = await fetcher(resolveApiUrl(API_TRADERS_PATH));
     if (!response.ok) {
       throw new Error(`PAquant API returned ${response.status}`);
     }

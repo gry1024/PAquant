@@ -1,6 +1,9 @@
 import fixtureData from "../fixtures/paquant-demo.json";
 import type {
+  Candle,
   LiveMarketPayload,
+  LiveMarketQuote,
+  LiveMarketSource,
   ModelProviderChoice,
   WorkbenchFixture,
   WorkbenchMeta
@@ -11,6 +14,12 @@ const CLOUDBASE_HTTP_API_BASE_URL =
 const API_LIVE_MARKET_PATH = "/market/xau/live";
 const API_MODEL_PROVIDERS_PATH = "/model-providers";
 const API_AGENT_RUNS_PATH = "/agent-runs";
+const FOREXSB_XAUUSD_M5_URL =
+  "https://data.forexsb.com/datafeed/data/dukascopy/XAUUSD5.lb.gz";
+const FOREXSB_MAX_VISIBLE_CANDLES = 240;
+const FOREXSB_MILLENNIUM = Date.UTC(2000, 0, 1);
+const FOREXSB_XAU_PRICE_SCALE = 1000;
+const FOREXSB_XAU_VOLUME_SCALE = 1;
 const fixture = fixtureData as WorkbenchFixture;
 const fallbackProviders: ModelProviderChoice[] = [
   {
@@ -78,7 +87,25 @@ export async function loadWorkbenchFixture(
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
-  return workbenchFromLiveMarket((await response.json()) as LiveMarketPayload);
+  const liveMarket = (await response.json()) as LiveMarketPayload;
+  const candles = await loadForexsbXauUsd5mCandles(fetcher).catch(() => null);
+  if (candles && candles.length >= 20) {
+    return workbenchFromLiveMarket({
+      source: {
+        id: "forexsb_dukascopy_xauusd_m5_browser",
+        label: "ForexSB Dukascopy XAUUSD M5 history",
+        instrumentSymbol: "XAUUSD",
+        instrumentKind: "spot_history",
+        isSpot: true,
+        isMock: false,
+        historyCompleteness: "historical_5m",
+        latency: "browser_direct"
+      },
+      quote: liveMarket.quote,
+      candles
+    });
+  }
+  return workbenchFromLiveMarket(liveMarket);
 }
 
 export async function loadModelProviders(
@@ -99,22 +126,83 @@ export async function loadModelProviders(
 export async function startAgentRun(
   {
     traderId,
-    modelProvider
+    modelProvider,
+    market
   }: {
     traderId: string;
     modelProvider: string;
+    market?: {
+      source?: LiveMarketSource;
+      quote?: LiveMarketQuote;
+      candles?: Candle[];
+    };
   },
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<WorkbenchFixture> {
   const response = await fetcher(resolveApiUrl(API_AGENT_RUNS_PATH), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ traderId, modelProvider })
+    body: JSON.stringify({ traderId, modelProvider, market })
   });
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
   return (await response.json()) as WorkbenchFixture;
+}
+
+export async function loadForexsbXauUsd5mCandles(
+  fetcher: typeof fetch = globalThis.fetch,
+  maxCandles = FOREXSB_MAX_VISIBLE_CANDLES
+): Promise<Candle[]> {
+  const response = await fetcher(FOREXSB_XAUUSD_M5_URL, {
+    headers: { Accept: "application/octet-stream" }
+  });
+  if (!response.ok) {
+    throw new Error(`ForexSB XAUUSD M5 returned ${response.status}`);
+  }
+  return parseForexsbXauUsd5m(await response.arrayBuffer(), maxCandles);
+}
+
+export function parseForexsbXauUsd5m(buffer: ArrayBuffer, maxCandles: number): Candle[] {
+  const view = new DataView(buffer);
+  if (view.byteLength < 24) {
+    throw new Error("ForexSB XAUUSD M5 payload is empty");
+  }
+  if (view.getUint8(0) === 0x1f && view.getUint8(1) === 0x8b) {
+    throw new Error("ForexSB XAUUSD M5 payload was not decompressed by fetch");
+  }
+  const recordSize = view.byteLength % 28 === 0 ? 28 : 24;
+  const totalBars = Math.floor(view.byteLength / recordSize);
+  const startBar = Math.max(0, totalBars - maxCandles);
+  const candles: Candle[] = [];
+  for (let bar = startBar; bar < totalBars; bar += 1) {
+    const offset = bar * recordSize;
+    const timestamp = new Date(
+      FOREXSB_MILLENNIUM + view.getInt32(offset, true) * 60_000
+    ).toISOString();
+    const open = view.getInt32(offset + 4, true) / FOREXSB_XAU_PRICE_SCALE;
+    const high = view.getInt32(offset + 8, true) / FOREXSB_XAU_PRICE_SCALE;
+    const low = view.getInt32(offset + 12, true) / FOREXSB_XAU_PRICE_SCALE;
+    const close = view.getInt32(offset + 16, true) / FOREXSB_XAU_PRICE_SCALE;
+    const volume = Math.ceil(
+      (view.getInt32(offset + 20, true) || 1) / FOREXSB_XAU_VOLUME_SCALE
+    );
+    const range = high - low;
+    candles.push({
+      timestamp,
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      open,
+      high,
+      low,
+      close,
+      volume,
+      body: Math.abs(close - open),
+      range,
+      close_position: range === 0 ? 0.5 : (close - low) / range
+    });
+  }
+  return candles;
 }
 
 export function resolveApiUrl(path: string, currentHref = globalThis.location?.href): string {

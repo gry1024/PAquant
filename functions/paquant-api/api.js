@@ -135,6 +135,7 @@ async function handleRequest({ method, url, body = "", fetchImpl = fetch }) {
       const payload = await createAgentRun({
         traderId: request.traderId ?? "brooks-generalist",
         modelProvider: request.modelProvider ?? "deepseek",
+        clientMarket: request.market,
         fetchImpl
       });
       return jsonResponse(payload, 201);
@@ -300,7 +301,7 @@ function listModelProviders() {
   }));
 }
 
-async function createAgentRun({ traderId, modelProvider, fetchImpl = fetch }) {
+async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl = fetch }) {
   if (modelProvider === "mock") {
     throw httpError(400, "mock provider is test-only and cannot run live AI trader mode");
   }
@@ -316,11 +317,11 @@ async function createAgentRun({ traderId, modelProvider, fetchImpl = fetch }) {
     );
   }
 
-  const market = await loadLiveMarket(fetchImpl);
-  if (market.source.historyCompleteness !== "intraday_5m" || market.candles.length < 20) {
+  const market = clientMarket == null ? await loadLiveMarket(fetchImpl) : normalizeClientMarket(clientMarket);
+  if (!hasFullFiveMinuteHistory(market)) {
     throw httpError(
-      409,
-      "live AI trader requires full 5m candle history before thinking, drawing, or placing simulated orders; current feed is latest quote only"
+      clientMarket == null ? 409 : 400,
+      "live AI trader requires full 5m candle history with non-mock 5m candles before thinking, drawing, or placing simulated orders; current feed is latest quote only or insufficient"
     );
   }
   const candles = market.candles;
@@ -479,6 +480,94 @@ async function createAgentRun({ traderId, modelProvider, fetchImpl = fetch }) {
     ],
     knowledge: knowledgeBrowser()
   };
+}
+
+function normalizeClientMarket(payload) {
+  const source = payload?.source ?? {};
+  const candles = normalizeClientCandles(payload?.candles);
+  if (source.isMock === true || candles.length < 20) {
+    throw httpError(
+      400,
+      "agent run requires non-mock 5m candles from the visible chart before model tools can run"
+    );
+  }
+  const last = candles.at(-1);
+  const quote = normalizeClientQuote(payload?.quote, last);
+  return {
+    source: {
+      id: String(source.id ?? "browser_xauusd_5m"),
+      label: String(source.label ?? "Browser supplied XAUUSD 5m candles"),
+      instrumentSymbol: String(source.instrumentSymbol ?? "XAUUSD"),
+      instrumentKind: String(source.instrumentKind ?? "spot_history"),
+      isSpot: source.isSpot !== false,
+      isMock: false,
+      historyCompleteness: String(source.historyCompleteness ?? "historical_5m"),
+      latency: String(source.latency ?? "browser_direct")
+    },
+    quote,
+    candles
+  };
+}
+
+function normalizeClientCandles(rawCandles) {
+  if (!Array.isArray(rawCandles)) {
+    throw httpError(400, "agent run requires non-mock 5m candles from the visible chart");
+  }
+  return rawCandles.map((raw, index) => {
+    const open = finiteNumber(raw?.open, `candles[${index}].open`);
+    const high = finiteNumber(raw?.high, `candles[${index}].high`);
+    const low = finiteNumber(raw?.low, `candles[${index}].low`);
+    const close = finiteNumber(raw?.close, `candles[${index}].close`);
+    const timestamp = new Date(raw?.timestamp);
+    if (Number.isNaN(timestamp.getTime())) {
+      throw httpError(400, `invalid candle timestamp at index ${index}`);
+    }
+    if (raw?.symbol !== "XAUUSD" || raw?.timeframe !== "5m") {
+      throw httpError(400, "agent run requires XAUUSD 5m candles");
+    }
+    if (high < Math.max(open, close) || low > Math.min(open, close)) {
+      throw httpError(400, `invalid OHLC range at index ${index}`);
+    }
+    const range = high - low;
+    return {
+      timestamp: timestamp.toISOString(),
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      open: round4(open),
+      high: round4(high),
+      low: round4(low),
+      close: round4(close),
+      volume: finiteNumber(raw?.volume ?? 0, `candles[${index}].volume`),
+      body: round4(Math.abs(close - open)),
+      range: round4(range),
+      close_position: range === 0 ? 0.5 : round4((close - low) / range)
+    };
+  });
+}
+
+function normalizeClientQuote(rawQuote, lastCandle) {
+  const price = rawQuote?.price == null ? lastCandle.close : finiteNumber(rawQuote.price, "quote.price");
+  const timestamp = new Date(rawQuote?.timestamp ?? lastCandle.timestamp);
+  if (Number.isNaN(timestamp.getTime())) {
+    throw httpError(400, "invalid quote timestamp");
+  }
+  return {
+    symbol: "XAUUSD",
+    price,
+    bid: rawQuote?.bid == null ? undefined : finiteNumber(rawQuote.bid, "quote.bid"),
+    ask: rawQuote?.ask == null ? undefined : finiteNumber(rawQuote.ask, "quote.ask"),
+    timestamp: timestamp.toISOString(),
+    providerSymbol: String(rawQuote?.providerSymbol ?? "XAUUSD")
+  };
+}
+
+function hasFullFiveMinuteHistory(market) {
+  return (
+    market.source.isMock === false &&
+    market.candles.length >= 20 &&
+    market.candles.every((candle) => candle.symbol === "XAUUSD" && candle.timeframe === "5m") &&
+    market.source.historyCompleteness !== "latest_quote_only"
+  );
 }
 
 async function callModel({ config, credential, fetchImpl, prompt, tools, toolChoice }) {
@@ -1017,6 +1106,14 @@ function numberOrThrow(value, fieldName) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
     throw new Error(`missing numeric ${fieldName}`);
+  }
+  return number;
+}
+
+function finiteNumber(value, fieldName) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    throw httpError(400, `missing numeric ${fieldName}`);
   }
   return number;
 }

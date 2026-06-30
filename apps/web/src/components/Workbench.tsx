@@ -20,7 +20,14 @@ import { PerformanceStrip } from "./PerformanceStrip";
 import { TradeReplayPanel } from "./TradeReplayPanel";
 import { TraderPanel } from "./TraderPanel";
 import { TraderRosterPanel } from "./TraderRosterPanel";
-import type { ModelProviderChoice, TraderProfile, WorkbenchFixture } from "../lib/workbenchTypes";
+import type {
+  Candle,
+  LiveMarketQuote,
+  LiveMarketSource,
+  ModelProviderChoice,
+  TraderProfile,
+  WorkbenchFixture
+} from "../lib/workbenchTypes";
 
 const tools = [
   { label: "Pointer", icon: MousePointer2 },
@@ -36,7 +43,15 @@ interface WorkbenchProps {
   fixture: WorkbenchFixture;
   traderProfiles: TraderProfile[];
   modelProviders: ModelProviderChoice[];
-  onStartAgentRun: (traderId: string, modelProvider: string) => Promise<WorkbenchFixture>;
+  onStartAgentRun: (
+    traderId: string,
+    modelProvider: string,
+    market: {
+      source?: LiveMarketSource;
+      quote?: LiveMarketQuote;
+      candles: Candle[];
+    }
+  ) => Promise<WorkbenchFixture>;
   sourceLabel?: string;
 }
 
@@ -83,14 +98,18 @@ export function Workbench({
     : "No model API configured";
   const dataSource = fixture.meta?.dataSource;
   const isQuoteOnly = dataSource?.historyCompleteness === "latest_quote_only";
+  const isHistorical5m = dataSource?.historyCompleteness === "historical_5m";
   const marketModeLabel = isQuoteOnly
     ? "Live XAU spot quote only; full 5m history unavailable"
+    : isHistorical5m
+      ? "5m XAU history: ForexSB/Dukascopy; live quote shown separately"
     : dataSource?.instrumentKind === "futures_proxy"
       ? "5m live feed: GC=F futures proxy, not spot XAU"
       : "5m live feed";
   const marketCountLabel = isQuoteOnly
     ? `${fixture.candles.length} quote${fixture.candles.length === 1 ? "" : "s"}`
     : `${fixture.candles.length} bars`;
+  const liveQuote = fixture.meta?.quote;
 
   useEffect(() => {
     if (!isStreaming) {
@@ -112,7 +131,11 @@ export function Workbench({
     setRunStatus("running");
     setRunError(null);
     try {
-      const run = await onStartAgentRun(activeTraderId, selectedProviderId);
+      const run = await onStartAgentRun(activeTraderId, selectedProviderId, {
+        source: fixture.meta?.dataSource,
+        quote: fixture.meta?.quote,
+        candles: fixture.candles
+      });
       setAgentFixture(run);
       setRunStatus("completed");
     } catch (error) {
@@ -163,7 +186,8 @@ export function Workbench({
               </span>
             ) : null}
             <span>
-              <strong>Last</strong> {latest?.close.toFixed(2)}
+              <strong>Quote</strong>{" "}
+              {(liveQuote?.price ?? latest?.close ?? 0).toFixed(2)}
             </span>
             <span>{marketCountLabel}</span>
             {fixture.higherTimeframeContext.map((context) => (

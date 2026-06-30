@@ -226,6 +226,58 @@ def test_agent_run_endpoint_uses_non_mock_provider_and_returns_trade_annotations
     assert payload["meta"]["recordCounts"]["analysis_runs"] == 1
 
 
+def test_agent_run_endpoint_accepts_browser_supplied_market_candles(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    client = TestClient(
+        create_app(
+            database_path=tmp_path / "paquant.sqlite3",
+            live_market_provider=FakeLiveProvider(),
+            model_provider_overrides={"deepseek": FakeRealModelProvider()},
+        )
+    )
+    candles = [candle.model_dump(mode="json") for candle in load_sample_candles()[:24]]
+
+    response = client.post(
+        "/api/agent-runs",
+        json={
+            "traderId": "brooks-generalist",
+            "modelProvider": "deepseek",
+            "market": {
+                "source": {
+                    "id": "forexsb_dukascopy_xauusd_m5_browser",
+                    "label": "ForexSB Dukascopy XAUUSD M5 history",
+                    "instrumentSymbol": "XAUUSD",
+                    "instrumentKind": "spot_history",
+                    "isSpot": True,
+                    "isMock": False,
+                    "historyCompleteness": "historical_5m",
+                    "latency": "browser_direct",
+                },
+                "candles": candles,
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["meta"]["dataSource"]["id"] == "forexsb_dukascopy_xauusd_m5_browser"
+    assert payload["meta"]["dataSource"]["isMock"] is False
+    assert len(payload["candles"]) == 24
+    assert payload["analysis"]["modelUsage"]["provider"] == "deepseek"
+    marker_types = {
+        obj["marker_type"]
+        for obj in payload["chartObjects"]
+        if obj["kind"] == "trade_marker"
+    }
+    assert marker_types >= {
+        "entry",
+        "stop",
+        "target",
+    }
+
+
 def test_live_market_endpoint_returns_non_mock_source_metadata(tmp_path: Path):
     client = TestClient(
         create_app(
