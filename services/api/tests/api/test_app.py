@@ -4,6 +4,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 from paquant.api.app import create_app
+from paquant.data_layer.providers import LiveMarketFeed, LiveMarketQuote, LiveMarketSource
+from paquant.data_layer.sample_data import load_sample_candles
+from paquant.model_provider.base import ModelRequest, ModelResponse, ModelToolCall, ModelUsage
 
 
 def test_health_endpoint_reports_service_status(tmp_path: Path):
@@ -117,7 +120,8 @@ def test_model_providers_endpoint_exposes_current_api_choices(tmp_path: Path, mo
     assert response.status_code == 200
     payload = response.json()
     provider_ids = {provider["id"] for provider in payload["providers"]}
-    assert {"mock", "deepseek", "qwen", "minimax", "kimi"} <= provider_ids
+    assert {"deepseek", "qwen", "minimax", "kimi"} <= provider_ids
+    assert "mock" not in provider_ids
     deepseek = next(provider for provider in payload["providers"] if provider["id"] == "deepseek")
     assert deepseek["model"] == "deepseek-chat"
     assert deepseek["apiKeyEnv"] == "DEEPSEEK_API_KEY"
@@ -125,20 +129,86 @@ def test_model_providers_endpoint_exposes_current_api_choices(tmp_path: Path, mo
     assert deepseek["capabilities"]["tool_calling"] is True
 
 
-def test_agent_run_endpoint_requires_user_start_and_returns_trade_annotations(tmp_path: Path):
-    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+class FakeRealModelProvider:
+    def generate(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(
+            text="Real provider test decision from non-mock model.",
+            structured={"bias": "long"},
+            tool_calls=[
+                ModelToolCall(
+                    id="real-test-tool-1",
+                    name="draw_trendline",
+                    arguments={
+                        "id": "real-test-line",
+                        "label": "Real model support line",
+                        "start": {"time_index": 0, "price": 2306.5},
+                        "end": {"time_index": 20, "price": 2320.5},
+                    },
+                ),
+                ModelToolCall(
+                    id="real-test-tool-2",
+                    name="measure_leg",
+                    arguments={
+                        "start": {"time_index": 0, "price": 2306.5},
+                        "end": {"time_index": 20, "price": 2320.5},
+                    },
+                ),
+            ],
+            usage=ModelUsage(
+                provider="deepseek",
+                model="deepseek-chat",
+                input_tokens=120,
+                output_tokens=64,
+                estimated_cost_usd=0.000102,
+            ),
+        )
+
+
+class FakeLiveProvider:
+    def load_candles(self, symbol: str, timeframe: str) -> LiveMarketFeed:
+        return LiveMarketFeed(
+            source=LiveMarketSource(
+                id="goldapi_spot",
+                label="GoldAPI spot XAU/USD",
+                instrument_symbol="XAUUSD",
+                instrument_kind="spot",
+                is_spot=True,
+                is_mock=False,
+                latency="live",
+            ),
+            quote=LiveMarketQuote(
+                symbol="XAUUSD",
+                price=2338.2,
+                timestamp="2026-06-30T04:30:00Z",
+                provider_symbol="XAU/USD",
+            ),
+            candles=load_sample_candles(),
+        )
+
+
+def test_agent_run_endpoint_uses_non_mock_provider_and_returns_trade_annotations(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    client = TestClient(
+        create_app(
+            database_path=tmp_path / "paquant.sqlite3",
+            live_market_provider=FakeLiveProvider(),
+            model_provider_overrides={"deepseek": FakeRealModelProvider()},
+        )
+    )
 
     response = client.post(
         "/api/agent-runs",
-        json={"traderId": "brooks-generalist", "modelProvider": "mock"},
+        json={"traderId": "brooks-generalist", "modelProvider": "deepseek"},
     )
 
     assert response.status_code == 201
     payload = response.json()
     assert payload["meta"]["agentStatus"] == "completed"
     assert payload["meta"]["startedBy"] == "user"
-    assert payload["meta"]["modelProvider"] == "mock"
-    assert payload["analysis"]["modelUsage"]["provider"] == "mock"
+    assert payload["meta"]["modelProvider"] == "deepseek"
+    assert payload["analysis"]["modelUsage"]["provider"] == "deepseek"
     assert payload["analysis"]["reasoningSummary"]
     assert payload["analysis"]["positionSizeSuggestion"] == 1
     assert payload["orders"][0]["quantity"] == 1
@@ -154,6 +224,52 @@ def test_agent_run_endpoint_requires_user_start_and_returns_trade_annotations(tm
     assert "stop" in marker_by_type["stop"]["label"].lower()
     assert "target" in marker_by_type["target"]["label"].lower()
     assert payload["meta"]["recordCounts"]["analysis_runs"] == 1
+
+
+def test_live_market_endpoint_returns_non_mock_source_metadata(tmp_path: Path):
+    client = TestClient(
+        create_app(
+            database_path=tmp_path / "paquant.sqlite3",
+            live_market_provider=FakeLiveProvider(),
+        )
+    )
+
+    response = client.get("/api/market/xau/live")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source"]["id"] == "goldapi_spot"
+    assert payload["source"]["isMock"] is False
+    assert payload["source"]["isSpot"] is True
+    assert payload["quote"]["price"] == 2338.2
+    assert payload["candles"][0]["symbol"] == "XAUUSD"
+
+
+def test_agent_run_rejects_mock_provider_for_live_mode(tmp_path: Path):
+    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+
+    response = client.post(
+        "/api/agent-runs",
+        json={"traderId": "brooks-generalist", "modelProvider": "mock"},
+    )
+
+    assert response.status_code == 400
+    assert "mock" in response.json()["detail"].lower()
+
+
+def test_agent_run_rejects_unconfigured_real_provider_without_silent_fallback(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    client = TestClient(create_app(database_path=tmp_path / "paquant.sqlite3"))
+
+    response = client.post(
+        "/api/agent-runs",
+        json={"traderId": "brooks-generalist", "modelProvider": "deepseek"},
+    )
+
+    assert response.status_code == 400
+    assert "DEEPSEEK_API_KEY" in response.json()["detail"]
 
 
 def test_app_uses_environment_database_path_by_default(tmp_path: Path, monkeypatch):

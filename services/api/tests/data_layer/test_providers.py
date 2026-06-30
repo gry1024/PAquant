@@ -3,6 +3,7 @@ from paquant.data_layer.providers import (
     CsvDownloadSource,
     InMemoryHistoricalDataProvider,
     RemoteCsvHistoricalDataProvider,
+    YahooGoldFuturesChartProvider,
     normalize_instrument_symbol,
     parse_ohlcv_csv,
 )
@@ -114,3 +115,55 @@ def test_remote_csv_provider_uses_cache_without_second_download(tmp_path):
 
     assert candles[0].close == 2310
     assert transport.urls == []
+
+
+class FakeJsonTransport:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+        self.urls: list[str] = []
+
+    def fetch_json(self, url: str, *, timeout: float) -> dict:
+        self.urls.append(url)
+        return self.payload
+
+
+def test_yahoo_gold_futures_provider_parses_live_5m_chart_without_spot_claim():
+    provider = YahooGoldFuturesChartProvider(
+        transport=FakeJsonTransport(
+            {
+                "chart": {
+                    "result": [
+                        {
+                            "meta": {
+                                "symbol": "GC=F",
+                                "regularMarketPrice": 2338.2,
+                                "regularMarketTime": 1782820800,
+                                "exchangeName": "CMX",
+                            },
+                            "timestamp": [1782820500, 1782820800],
+                            "indicators": {
+                                "quote": [
+                                    {
+                                        "open": [2336.1, 2337.4],
+                                        "high": [2338.0, 2339.1],
+                                        "low": [2335.8, 2337.0],
+                                        "close": [2337.3, 2338.2],
+                                        "volume": [1200, 1500],
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+            }
+        )
+    )
+
+    feed = provider.load_candles("XAUUSD", "5m")
+
+    assert feed.source.id == "yahoo_gc_futures_proxy"
+    assert feed.source.instrument_kind == "futures_proxy"
+    assert feed.source.is_spot is False
+    assert feed.source.is_mock is False
+    assert feed.candles[-1].close == 2338.2
+    assert feed.quote.price == 2338.2

@@ -237,8 +237,31 @@ export interface PerformanceSummary {
   setup_stats: SetupPerformance[];
 }
 
+export interface LiveMarketSource {
+  id: string;
+  label: string;
+  instrumentSymbol: "XAUUSD" | string;
+  instrumentKind: "spot" | "futures_proxy" | string;
+  isSpot: boolean;
+  isMock: boolean;
+  latency: "live" | "near_realtime" | "delayed" | string;
+}
+
+export interface LiveMarketQuote {
+  symbol: "XAUUSD";
+  price: number;
+  timestamp: string;
+  providerSymbol: string;
+}
+
+export interface LiveMarketPayload {
+  source: LiveMarketSource;
+  quote: LiveMarketQuote;
+  candles: Candle[];
+}
+
 export interface WorkbenchMeta {
-  source: "api" | "fixture";
+  source: "api" | "fixture" | "live";
   symbol: "XAUUSD";
   timeframe: "5m";
   traderId: string;
@@ -249,6 +272,8 @@ export interface WorkbenchMeta {
   analysisRunId?: number;
   persisted?: boolean;
   recordCounts?: Record<string, number>;
+  dataSource?: LiveMarketSource;
+  quote?: LiveMarketQuote;
 }
 
 export interface ModelProviderChoice {

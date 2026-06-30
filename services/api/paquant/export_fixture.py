@@ -9,6 +9,7 @@ from paquant.agent_runtime.brooks_generalist import (
     BrooksGeneralistTrader,
 )
 from paquant.data_layer.sample_data import load_sample_candles
+from paquant.data_layer.schemas import Candle
 from paquant.data_layer.timeframes import build_higher_timeframe_context
 from paquant.drawing_engine.schemas import (
     AnchorPoint,
@@ -21,7 +22,7 @@ from paquant.drawing_engine.tools import AgentAction
 from paquant.knowledge_layer.compiler import compile_core_knowledge
 from paquant.model_provider.base import ModelProvider
 from paquant.simulation_engine.engine import SimulationEngine
-from paquant.simulation_engine.orders import SimulatedOrder
+from paquant.simulation_engine.orders import OrderSide, OrderType, SimulatedOrder
 
 
 def _analysis_payload(decision) -> dict[str, Any]:
@@ -74,6 +75,8 @@ def _snapshot_id(stage: str) -> str:
 
 
 def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[str, Any]]:
+    risk_points = abs(order.entry - order.stop)
+    reward_points = abs(order.target - order.entry)
     return [
         {
             "stage": "pre-entry",
@@ -99,8 +102,9 @@ def _trade_replay_payload(candles, order: SimulatedOrder, trade) -> list[dict[st
             "orderId": order.id,
             "outcome": "pending",
             "narrative": (
-                "Limit buy plan used 5 points of risk and a 2R target while the "
-                "pullback held above the invalidation price."
+                f"Limit {order.side.value} plan used {risk_points:.2f} points "
+                f"of risk and a {reward_points / risk_points:.1f}R target while "
+                "the pullback held beyond the invalidation price."
             ),
         },
         {
@@ -251,8 +255,11 @@ def build_knowledge_browser_payload() -> dict[str, Any]:
     }
 
 
-def build_demo_fixture(model_provider: ModelProvider | None = None) -> dict[str, Any]:
-    candles = load_sample_candles()
+def build_demo_fixture(
+    model_provider: ModelProvider | None = None,
+    candles: list[Candle] | None = None,
+) -> dict[str, Any]:
+    candles = candles or load_sample_candles()
     knowledge = compile_core_knowledge()
     decision = BrooksGeneralistTrader(provider=model_provider).analyze(
         candles=candles, knowledge=knowledge, chart_objects=[]
@@ -262,30 +269,38 @@ def build_demo_fixture(model_provider: ModelProvider | None = None) -> dict[str,
     proposed_order = decision.proposed_order
     trade_reason = (
         "Pullback held above the always-in trend line; trader's equation offered "
-        "5 points risk for a 10 point target."
+        f"{abs(proposed_order.entry - proposed_order.stop):.2f} points risk for "
+        f"{abs(proposed_order.target - proposed_order.entry):.2f} points reward."
     )
     chart_objects = [
         *decision.chart_objects,
         MeasuredMove(
             id="mm-target",
             label="Measured move target",
-            start=AnchorPoint(time_index=4, price=2310),
-            end=AnchorPoint(time_index=18, price=2320),
-            projected_from=AnchorPoint(time_index=20, price=2315),
-            target_price=2325,
+            start=AnchorPoint(time_index=4, price=proposed_order.entry),
+            end=AnchorPoint(time_index=18, price=proposed_order.target),
+            projected_from=AnchorPoint(
+                time_index=20,
+                price=round((proposed_order.entry + proposed_order.target) / 2, 2),
+            ),
+            target_price=round(
+                proposed_order.target
+                + abs(proposed_order.target - proposed_order.entry) / 2,
+                2,
+            ),
         ),
         ThreePush(
             id="three-push",
             label="Three pushes within channel",
             pushes=[
-                AnchorPoint(time_index=8, price=2314.1),
-                AnchorPoint(time_index=17, price=2320.8),
-                AnchorPoint(time_index=29, price=2326.9),
+                AnchorPoint(time_index=8, price=candles[min(8, len(candles) - 1)].high),
+                AnchorPoint(time_index=17, price=candles[min(17, len(candles) - 1)].high),
+                AnchorPoint(time_index=29, price=candles[min(29, len(candles) - 1)].high),
             ],
         ),
         TradeMarker(
             id="entry-marker",
-            label="Entry 2310.00 | Size 1",
+            label=f"Entry {proposed_order.entry:.2f} | Size {proposed_order.quantity:g}",
             time_index=12,
             price=proposed_order.entry,
             marker_type="entry",
@@ -294,7 +309,7 @@ def build_demo_fixture(model_provider: ModelProvider | None = None) -> dict[str,
         ),
         TradeMarker(
             id="stop-marker",
-            label="Stop 2305.00 | Size 1",
+            label=f"Stop {proposed_order.stop:.2f} | Size {proposed_order.quantity:g}",
             time_index=12,
             price=proposed_order.stop,
             marker_type="stop",
@@ -303,7 +318,7 @@ def build_demo_fixture(model_provider: ModelProvider | None = None) -> dict[str,
         ),
         TradeMarker(
             id="target-marker",
-            label="Target 2320.00 | Size 1",
+            label=f"Target {proposed_order.target:.2f} | Size {proposed_order.quantity:g}",
             time_index=17,
             price=proposed_order.target,
             marker_type="target",
@@ -311,9 +326,12 @@ def build_demo_fixture(model_provider: ModelProvider | None = None) -> dict[str,
             reason="Target marks the 2R measured reward from the pullback entry.",
         ),
     ]
-    order = SimulatedOrder.limit_buy(
+    order = SimulatedOrder(
+        id=f"sim-XAUUSD-5m-{proposed_order.setup_name}",
         symbol="XAUUSD",
         timeframe="5m",
+        side=OrderSide(proposed_order.side),
+        order_type=OrderType(proposed_order.order_type),
         entry=proposed_order.entry,
         stop=proposed_order.stop,
         target=proposed_order.target,

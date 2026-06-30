@@ -5,31 +5,42 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from paquant.agent_runtime.registry import list_trader_profiles
 from paquant.audit_replay.repository import AuditRepository
 from paquant.audit_replay.schema import create_schema
+from paquant.data_layer.providers import YahooGoldFuturesChartProvider
 from paquant.export_fixture import build_demo_fixture, build_knowledge_browser_payload
 from paquant.model_provider.base import ModelProvider
-from paquant.model_provider.mock import MockModelProvider
 from paquant.model_provider.openai_compatible import OpenAICompatibleProvider
 from paquant.model_provider.registry import build_default_provider_registry
 
 
 class AgentRunRequest(BaseModel):
     trader_id: str = Field(default="brooks-generalist", alias="traderId")
-    model_provider: str = Field(default="mock", alias="modelProvider")
+    model_provider: str = Field(default="deepseek", alias="modelProvider")
 
 
-def create_app(database_path: str | Path | None = None) -> FastAPI:
+def create_app(
+    database_path: str | Path | None = None,
+    *,
+    live_market_provider: Any | None = None,
+    model_provider_overrides: dict[str, ModelProvider] | None = None,
+    load_env_file: bool | None = None,
+) -> FastAPI:
+    should_load_env_file = load_env_file if load_env_file is not None else database_path is None
+    if should_load_env_file:
+        _load_local_env_file()
     resolved_database_path = _resolve_database_path(database_path)
     connection = sqlite3.connect(resolved_database_path, check_same_thread=False)
     create_schema(connection)
     repository = AuditRepository(connection)
     _seed_trader_profiles(repository)
+    live_provider = live_market_provider or YahooGoldFuturesChartProvider()
+    provider_overrides = model_provider_overrides or {}
 
     app = FastAPI(title="PAquant API", version="0.1.0")
     app.state.connection = connection
@@ -66,10 +77,16 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def get_model_providers() -> dict[str, Any]:
         return {"providers": _model_provider_payloads()}
 
+    @app.get("/api/market/xau/live")
+    def get_live_xau_market() -> dict[str, Any]:
+        feed = live_provider.load_candles("XAUUSD", "5m")
+        return _live_market_payload(feed)
+
     @app.post("/api/agent-runs", status_code=201)
     def create_agent_run(request: AgentRunRequest) -> dict[str, Any]:
-        provider = _build_model_provider(request.model_provider)
-        payload = build_demo_fixture(model_provider=provider)
+        provider = _build_model_provider(request.model_provider, provider_overrides)
+        live_feed = live_provider.load_candles("XAUUSD", "5m")
+        payload = build_demo_fixture(model_provider=provider, candles=live_feed.candles)
         run_id = _persist_workbench_payload(repository, payload)
         return _with_meta(
             payload,
@@ -78,6 +95,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             repository=repository,
             started_by="user",
             agent_status="completed",
+            data_source=live_feed.source.model_dump(mode="json", by_alias=True),
         )
 
     @app.post("/api/workbench/demo/runs", status_code=201)
@@ -90,22 +108,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
 
 def _model_provider_payloads() -> list[dict[str, Any]]:
-    providers = [
-        {
-            "id": "mock",
-            "name": "Mock local",
-            "model": MockModelProvider.model,
-            "apiKeyEnv": None,
-            "available": True,
-            "capabilities": {
-                "text": True,
-                "vision": False,
-                "structured_output": True,
-                "tool_calling": True,
-                "context_window": 16_000,
-            },
-        }
-    ]
+    providers = []
     for provider_id, config in build_default_provider_registry().items():
         providers.append(
             {
@@ -120,16 +123,70 @@ def _model_provider_payloads() -> list[dict[str, Any]]:
     return providers
 
 
-def _build_model_provider(provider_id: str) -> ModelProvider:
+def _build_model_provider(
+    provider_id: str,
+    overrides: dict[str, ModelProvider] | None = None,
+) -> ModelProvider:
     if provider_id == "mock":
-        return MockModelProvider()
+        raise HTTPException(
+            status_code=400,
+            detail="mock provider is test-only and cannot run live AI trader mode",
+        )
+    if overrides and provider_id in overrides:
+        return overrides[provider_id]
     registry = build_default_provider_registry()
     config = registry.get(provider_id)
     if config is None:
-        return MockModelProvider()
+        raise HTTPException(status_code=400, detail=f"unknown model provider: {provider_id}")
     if not os.environ.get(config.api_key_env):
-        return MockModelProvider()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"model provider {provider_id} is not configured; "
+                f"set {config.api_key_env}"
+            ),
+        )
     return OpenAICompatibleProvider(config=config)
+
+
+def _live_market_payload(feed: Any) -> dict[str, Any]:
+    return {
+        "source": feed.source.model_dump(mode="json", by_alias=True),
+        "quote": feed.quote.model_dump(mode="json", by_alias=True),
+        "candles": [candle.model_dump(mode="json") for candle in feed.candles],
+    }
+
+
+def _load_local_env_file() -> None:
+    for path in _candidate_env_files():
+        if not path.exists():
+            continue
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if line.startswith("export "):
+                line = line.removeprefix("export ").strip()
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+        return
+
+
+def _candidate_env_files() -> list[Path]:
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+    starts = [Path.cwd(), Path(__file__).resolve()]
+    for start in starts:
+        base = start if start.is_dir() else start.parent
+        for parent in [base, *base.parents]:
+            candidate = parent / ".env.local"
+            if candidate not in seen:
+                candidates.append(candidate)
+                seen.add(candidate)
+    return candidates
 
 
 def _resolve_database_path(database_path: str | Path | None) -> str:
@@ -182,6 +239,7 @@ def _with_meta(
     repository: AuditRepository | None = None,
     started_by: str | None = None,
     agent_status: str | None = None,
+    data_source: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     analysis = payload["analysis"]
     enriched = dict(payload)
@@ -213,6 +271,8 @@ def _with_meta(
         meta["startedBy"] = started_by
     if agent_status is not None:
         meta["agentStatus"] = agent_status
+    if data_source is not None:
+        meta["dataSource"] = data_source
     enriched["meta"] = meta
     return enriched
 

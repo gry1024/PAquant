@@ -89,7 +89,7 @@ export function ChartPanel({
       <div className="chart-header">
         <div>
           <span className="eyebrow">XAUUSD</span>
-          <h2>Replay session</h2>
+          <h2>Live market window</h2>
         </div>
         <div className="chart-stats">
           <span>

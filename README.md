@@ -10,7 +10,7 @@ The current repository contains the phase-one vertical slice for local simulatio
 
 - Frontend: CloudBase public preview, service name `paquant`.
 - First phase: web-only, desktop-first.
-- Data: XAU 5-minute historical replay first.
+- Data: live XAU 5-minute market feed first, currently labeled when a provider is a futures proxy rather than spot XAU.
 - Storage: local SQLite first, Postgres-compatible schema boundaries.
 - AI: provider adapters for DeepSeek, Qwen, MiniMax, Kimi, and future OpenAI.
 - Trading: simulation only in phase one; Exness MT5 live trading is a later phase.
@@ -44,6 +44,9 @@ pnpm api
 The API exposes:
 
 - `GET /healthz`
+- `GET /api/market/xau/live`
+- `GET /api/model-providers`
+- `POST /api/agent-runs`
 - `GET /api/traders`
 - `GET /api/workbench/demo`
 - `POST /api/workbench/demo/runs`
@@ -61,7 +64,7 @@ Run the frontend in a second shell:
 pnpm dev
 ```
 
-Vite proxies `/api` to `http://127.0.0.1:8000` during local development. If the API is unavailable, the web workstation falls back to the committed demo fixture so the CloudBase static preview can still open safely.
+Vite proxies `/api` to `http://127.0.0.1:8000` during local development. The live workstation requires `/api/market/xau/live`; it shows an explicit live-data error instead of silently falling back to committed demo data.
 
 Verify the frontend:
 
@@ -81,7 +84,8 @@ Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyCo
 
 ## Implemented Phase-One Slice
 
-- XAUUSD 5-minute deterministic replay data.
+- XAUUSD 5-minute deterministic replay data for tests and audit replay.
+- Live XAU market feed endpoint with source metadata, including explicit futures-proxy labeling when the source is not spot XAU.
 - Derived M15/H1 auxiliary context from the primary XAU 5-minute replay.
 - Brooks structured knowledge artifact with source metadata.
 - Deterministic Brooks knowledge retrieval surfaced in the AI trader audit trail.
@@ -89,8 +93,9 @@ Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyCo
 - Deterministic simulated order/trade engine with R multiple and equity curve.
 - Stop-limit order state, risk guards, and configurable spread/slippage execution costs.
 - SQLite audit/replay schema and repository boundary.
-- Mockable model provider and Brooks Generalist AI trader output schema.
+- Mockable model provider boundary and real API adapters for DeepSeek, Qwen, MiniMax, and Kimi.
+- Brooks Generalist AI trader requires tool calls in live mode, executes returned drawing tools, and rejects mock provider selection for live agent runs.
 - Brooks Generalist trade and no-trade decision paths.
-- Local FastAPI product API for health checks, workbench payloads, and persisted demo agent runs.
-- TradingView-like desktop web workstation with candlesticks, drawing overlay, bar-by-bar replay controls, analysis, knowledge refs, simulated orders, journal, replay snapshots, and performance panels.
+- Local FastAPI product API for health checks, live market payloads, provider status, and persisted user-started agent runs.
+- TradingView-like desktop web workstation with candlesticks, drawing overlay, bar-by-bar stream controls, visible model API selection, analysis, knowledge refs, simulated orders, journal, replay snapshots, and performance panels.
 - CloudBase static public preview at `https://paquant-groy-env-d5g7okht7dcd202fe.webapps.tcloudbase.com`.

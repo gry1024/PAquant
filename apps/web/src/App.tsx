@@ -8,24 +8,39 @@ export default function App() {
   const [workbenchFixture, setWorkbenchFixture] = useState<WorkbenchFixture | null>(null);
   const [traderProfiles, setTraderProfiles] = useState<TraderProfile[] | null>(null);
   const [modelProviders, setModelProviders] = useState<ModelProviderChoice[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    Promise.all([loadWorkbenchFixture(), loadTraderProfiles(), loadModelProviders()]).then(
-      ([loadedFixture, profiles, providers]) => {
+    Promise.all([loadWorkbenchFixture(), loadTraderProfiles(), loadModelProviders()])
+      .then(([loadedFixture, profiles, providers]) => {
         if (isMounted) {
           setWorkbenchFixture(loadedFixture);
           setTraderProfiles(profiles);
           setModelProviders(providers);
         }
-      }
-    );
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load live market data");
+        }
+      });
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  if (loadError) {
+    return (
+      <main className="loading-shell error-shell">
+        <div className="loading-mark">PA</div>
+        <span>Live market data unavailable</span>
+        <small>{loadError}</small>
+      </main>
+    );
+  }
 
   if (!workbenchFixture || !traderProfiles || !modelProviders) {
     return (
@@ -42,7 +57,7 @@ export default function App() {
       traderProfiles={traderProfiles}
       modelProviders={modelProviders}
       onStartAgentRun={(traderId, modelProvider) => startAgentRun({ traderId, modelProvider })}
-      sourceLabel={workbenchFixture.meta?.source === "api" ? "Local API" : "Fixture fallback"}
+      sourceLabel={workbenchFixture.meta?.source === "live" ? "Live market API" : "Local API"}
     />
   );
 }

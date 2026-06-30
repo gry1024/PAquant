@@ -12,8 +12,23 @@ from paquant.knowledge_layer.retrieval import (
     KnowledgeReference,
     retrieve_relevant_knowledge,
 )
-from paquant.model_provider.base import ModelProvider, ModelRequest, ModelToolCall, ModelUsage
+from paquant.model_provider.base import (
+    ModelProvider,
+    ModelRequest,
+    ModelResponse,
+    ModelToolCall,
+    ModelUsage,
+)
 from paquant.model_provider.mock import MockModelProvider
+
+_CHART_DRAWING_TOOLS = {"draw_trendline", "draw_box", "draw_fibonacci"}
+_MEASUREMENT_TOOLS = {
+    "measure_leg",
+    "compare_legs",
+    "count_bars",
+    "project_line",
+    "measure_deviation",
+}
 
 
 class KeyLevel(BaseModel):
@@ -97,9 +112,13 @@ class BrooksGeneralistTrader:
 
         response = self.provider.generate(
             ModelRequest(
-                prompt=(
-                    f"Analyze {last.symbol} {last.timeframe} "
-                    f"with Brooks refs {[reference.key for reference in knowledge_refs]}."
+                prompt=_build_analysis_prompt(
+                    candles=candles,
+                    knowledge_refs=knowledge_refs,
+                    first_open=first.open,
+                    last_close=last.close,
+                    high=high,
+                    low=low,
                 ),
                 schema_name="TraderDecision",
                 tools=build_brooks_tool_definitions(),
@@ -111,9 +130,44 @@ class BrooksGeneralistTrader:
                 },
             )
         )
+        responses = [response]
         tool_commands = _tool_calls_to_commands(response.tool_calls)
-        if not tool_commands:
+        is_mock_provider = isinstance(self.provider, MockModelProvider)
+        if not tool_commands and is_mock_provider:
             tool_commands = default_tool_commands
+        if not is_mock_provider:
+            if not _has_any_tool(tool_commands, _CHART_DRAWING_TOOLS):
+                drawing_response = self.provider.generate(
+                    _build_forced_tool_request(
+                        tool_name="draw_trendline",
+                        candles=candles,
+                        knowledge_refs=knowledge_refs,
+                    )
+                )
+                responses.append(drawing_response)
+                tool_commands.extend(_tool_calls_to_commands(drawing_response.tool_calls))
+            if not _has_any_tool(tool_commands, _MEASUREMENT_TOOLS):
+                measurement_response = self.provider.generate(
+                    _build_forced_tool_request(
+                        tool_name="measure_leg",
+                        candles=candles,
+                        knowledge_refs=knowledge_refs,
+                    )
+                )
+                responses.append(measurement_response)
+                tool_commands.extend(_tool_calls_to_commands(measurement_response.tool_calls))
+            response = _merge_model_responses(responses)
+        if not tool_commands or (
+            not is_mock_provider
+            and (
+                not _has_any_tool(tool_commands, _CHART_DRAWING_TOOLS)
+                or not _has_any_tool(tool_commands, _MEASUREMENT_TOOLS)
+            )
+        ):
+            raise ValueError(
+                "model provider returned insufficient tool calls; live AI trader "
+                "mode requires drawing and measurement tool output"
+            )
         drawing_result = execute_drawing_plan(candles, tool_commands)
 
         if bias == "neutral":
@@ -129,19 +183,11 @@ class BrooksGeneralistTrader:
                 "directional follow-through for a favorable trader's equation."
             )
         else:
-            proposed_order = ProposedOrder(
-                side="buy",
-                order_type="limit",
-                entry=2310,
-                stop=2305,
-                target=2320,
-                quantity=1,
-                setup_name="Brooks pullback in always-in long context",
-            )
-            setup_candidate = "Brooks pullback in always-in long context"
-            entry_type = "limit buy"
-            stop = 2305.0
-            target = 2320.0
+            proposed_order = _build_contextual_order(candles, bias)
+            setup_candidate = proposed_order.setup_name
+            entry_type = f"limit {proposed_order.side}"
+            stop = proposed_order.stop
+            target = proposed_order.target
             position_size_suggestion = 1.0
             confidence = 0.64
             no_trade_reason = None
@@ -154,8 +200,8 @@ class BrooksGeneralistTrader:
             key_levels.append(
                 KeyLevel(
                     label="pullback entry zone",
-                    price=2310,
-                    evidence="Limit price near early pullback low",
+                    price=proposed_order.entry,
+                    evidence="Limit price derived from visible pullback structure",
                 )
             )
 
@@ -184,8 +230,8 @@ class BrooksGeneralistTrader:
             key_levels=key_levels,
             setup_candidate=setup_candidate,
             invalidation=(
-                "A break below 2305 invalidates the pullback thesis and "
-                "suggests sellers regained control."
+                f"A break beyond {proposed_order.stop:.2f} invalidates the "
+                "pullback thesis and suggests the other side regained control."
                 if bias != "neutral"
                 else "A strong consecutive-bar breakout with follow-through "
                 "would end the no-trade premise."
@@ -206,13 +252,176 @@ class BrooksGeneralistTrader:
                     "Retrieved Brooks refs: "
                     f"{', '.join(reference.key for reference in knowledge_refs)}."
                 ),
-                "Trader's equation uses 5 points risk for 10 points reward.",
+                (
+                    "Trader's equation uses "
+                    f"{abs(proposed_order.entry - proposed_order.stop):.2f} "
+                    f"points risk for {abs(proposed_order.target - proposed_order.entry):.2f} "
+                    "points reward."
+                    if proposed_order is not None
+                    else "No order was submitted because the context was neutral."
+                ),
             ],
             action_stream=drawing_result.actions,
             chart_objects=drawing_result.chart_objects,
             proposed_order=proposed_order,
             model_usage=response.usage,
         )
+
+
+def _build_analysis_prompt(
+    *,
+    candles: list[Candle],
+    knowledge_refs: list[KnowledgeReference],
+    first_open: float,
+    last_close: float,
+    high: float,
+    low: float,
+) -> str:
+    recent = candles[-8:]
+    recent_summary = [
+        {
+            "index": len(candles) - len(recent) + index,
+            "open": candle.open,
+            "high": candle.high,
+            "low": candle.low,
+            "close": candle.close,
+        }
+        for index, candle in enumerate(recent)
+    ]
+    return (
+        "You are PAquant Brooks Generalist. Analyze XAUUSD 5m as a price-action "
+        "trader, but use tool calls for chart work. You must call at least one "
+        "drawing tool such as draw_trendline, draw_channel, draw_box, or "
+        "draw_fibonacci, and at least one measurement tool such as measure_leg, "
+        "compare_legs, count_bars, project_line, or measure_deviation before "
+        "finalizing the trade thesis. Do not expose hidden chain-of-thought; "
+        "return only a concise reasoning summary after the tool calls.\n\n"
+        f"Session facts: first_open={first_open:.2f}, last_close={last_close:.2f}, "
+        f"high={high:.2f}, low={low:.2f}, bars={len(candles)}.\n"
+        f"Recent candles: {recent_summary}.\n"
+        f"Relevant Brooks refs: {[reference.key for reference in knowledge_refs]}."
+    )
+
+
+def _build_forced_tool_request(
+    *,
+    tool_name: str,
+    candles: list[Candle],
+    knowledge_refs: list[KnowledgeReference],
+) -> ModelRequest:
+    first = candles[0]
+    last = candles[-1]
+    mid_index = max(1, len(candles) // 2)
+    mid = candles[mid_index]
+    if tool_name == "draw_trendline":
+        prompt = (
+            "Your previous response did not create a chart drawing. Call "
+            "draw_trendline now using exactly this structure: id "
+            "'model-live-trendline', label 'Model live trend line', start "
+            f"{{'time_index': 0, 'price': {first.low:.2f}}}, end "
+            f"{{'time_index': {len(candles) - 1}, 'price': {last.close:.2f}}}. "
+            "Do not return hidden chain-of-thought."
+        )
+    elif tool_name == "measure_leg":
+        prompt = (
+            "Your previous response did not create a measurement. Call "
+            "measure_leg now using exactly this structure: start "
+            f"{{'time_index': 0, 'price': {first.close:.2f}}}, end "
+            f"{{'time_index': {mid_index}, 'price': {mid.close:.2f}}}. "
+            "Do not return hidden chain-of-thought."
+        )
+    else:
+        raise ValueError(f"unsupported forced tool: {tool_name}")
+
+    return ModelRequest(
+        prompt=(
+            f"{prompt}\nRelevant Brooks refs: "
+            f"{[reference.key for reference in knowledge_refs]}."
+        ),
+        schema_name="TraderDecision",
+        tools=build_brooks_tool_definitions(),
+        metadata={
+            "tool_choice": {
+                "type": "function",
+                "function": {"name": tool_name},
+            }
+        },
+    )
+
+
+def _build_contextual_order(
+    candles: list[Candle], bias: Literal["long", "short", "neutral"]
+) -> ProposedOrder:
+    early_window = candles[: min(13, len(candles))]
+    session_high = max(candle.high for candle in candles)
+    session_low = min(candle.low for candle in candles)
+    early_high = max(candle.high for candle in early_window)
+    early_low = min(candle.low for candle in early_window)
+    session_range = max(session_high - session_low, 1.0)
+    risk = round(min(5.0, max(1.0, session_range * 0.12)), 2)
+    quantity = 1.0
+
+    if bias == "short":
+        entry = round(early_high - min(3.5, max(1.0, risk * 0.7)), 2)
+        stop = round(entry + risk, 2)
+        target = round(entry - (risk * 2), 2)
+        return ProposedOrder(
+            side="sell",
+            order_type="limit",
+            entry=entry,
+            stop=stop,
+            target=target,
+            quantity=quantity,
+            setup_name="Brooks pullback in always-in short context",
+        )
+
+    entry = round(early_low + min(3.5, max(1.0, risk * 0.7)), 2)
+    stop = round(entry - risk, 2)
+    target = round(entry + (risk * 2), 2)
+    return ProposedOrder(
+        side="buy",
+        order_type="limit",
+        entry=entry,
+        stop=stop,
+        target=target,
+        quantity=quantity,
+        setup_name="Brooks pullback in always-in long context",
+    )
+
+
+def _has_any_tool(commands: list[ToolCommand], tool_names: set[str]) -> bool:
+    return any(command.tool in tool_names for command in commands)
+
+
+def _merge_model_responses(responses: list[ModelResponse]) -> ModelResponse:
+    if len(responses) == 1:
+        return responses[0]
+
+    first = responses[0]
+    text = " ".join(response.text.strip() for response in responses if response.text.strip())
+    if not text:
+        text = (
+            "Model API returned required drawing and measurement tool calls; "
+            "PAquant executed them before forming the audited trade plan."
+        )
+    return ModelResponse(
+        text=text,
+        structured={
+            key: value
+            for response in responses
+            for key, value in response.structured.items()
+        },
+        tool_calls=[tool_call for response in responses for tool_call in response.tool_calls],
+        usage=ModelUsage(
+            provider=first.usage.provider,
+            model=first.usage.model,
+            input_tokens=sum(response.usage.input_tokens for response in responses),
+            output_tokens=sum(response.usage.output_tokens for response in responses),
+            estimated_cost_usd=round(
+                sum(response.usage.estimated_cost_usd for response in responses), 8
+            ),
+        ),
+    )
 
 
 def _tool_calls_to_commands(tool_calls: list[ModelToolCall]) -> list[ToolCommand]:

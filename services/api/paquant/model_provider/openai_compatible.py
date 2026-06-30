@@ -75,7 +75,7 @@ class OpenAICompatibleProvider:
         }
         if request.tools:
             payload["tools"] = request.tools
-            payload["tool_choice"] = "auto"
+            payload["tool_choice"] = request.metadata.get("tool_choice", "auto")
         headers = {
             "Authorization": f"Bearer {credential}",
             "Content-Type": "application/json",

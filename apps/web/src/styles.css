@@ -54,6 +54,12 @@ body {
   font-weight: 800;
 }
 
+.error-shell small {
+  max-width: min(720px, calc(100vw - 32px));
+  color: #8d2529;
+  text-align: center;
+}
+
 button,
 input,
 select {
@@ -277,6 +283,17 @@ h2 {
 
 .model-api-readout {
   color: #243246;
+}
+
+.agent-run-error {
+  min-height: 24px;
+  max-width: min(720px, 100%);
+  padding: 4px 8px;
+  border: 1px solid rgba(209, 77, 82, 0.26);
+  border-radius: 6px;
+  color: #8d2529;
+  background: rgba(209, 77, 82, 0.08);
+  font-size: 12px;
 }
 
 .timeframe-chip {

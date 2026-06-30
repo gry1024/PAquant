@@ -47,10 +47,15 @@ export function Workbench({
   onStartAgentRun,
   sourceLabel
 }: WorkbenchProps) {
-  const [activeTraderId, setActiveTraderId] = useState(fixture.analysis.traderId);
-  const [selectedProviderId, setSelectedProviderId] = useState(modelProviders[0]?.id ?? "mock");
+  const [activeTraderId, setActiveTraderId] = useState(
+    fixture.meta?.traderId ?? traderProfiles[0]?.id ?? "brooks-generalist"
+  );
+  const [selectedProviderId, setSelectedProviderId] = useState(
+    modelProviders.find((provider) => provider.available)?.id ?? modelProviders[0]?.id ?? "deepseek"
+  );
   const [agentFixture, setAgentFixture] = useState<WorkbenchFixture | null>(null);
   const [runStatus, setRunStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
+  const [runError, setRunError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [visibleCandleCount, setVisibleCandleCount] = useState(
     Math.min(24, fixture.candles.length)
@@ -75,7 +80,12 @@ export function Workbench({
   const activeTraderName = activeTrader?.name ?? "Brooks Generalist";
   const modelLabel = selectedProvider
     ? `${selectedProvider.name} / ${selectedProvider.model}`
-    : "Mock local / mock-brooks";
+    : "No model API configured";
+  const dataSource = fixture.meta?.dataSource;
+  const marketModeLabel =
+    dataSource?.instrumentKind === "futures_proxy"
+      ? "5m live feed: GC=F futures proxy, not spot XAU"
+      : "5m live feed";
 
   useEffect(() => {
     if (!isStreaming) {
@@ -95,12 +105,14 @@ export function Workbench({
 
   async function handleStartAgentRun() {
     setRunStatus("running");
+    setRunError(null);
     try {
       const run = await onStartAgentRun(activeTraderId, selectedProviderId);
       setAgentFixture(run);
       setRunStatus("completed");
-    } catch {
+    } catch (error) {
       setRunStatus("failed");
+      setRunError(error instanceof Error ? error.message : "AI trader run failed");
     }
   }
 
@@ -131,7 +143,7 @@ export function Workbench({
             <h1>PAquant XAU workstation</h1>
             <div className="market-line">
               <span>XAUUSD</span>
-              <span>5m replay</span>
+              <span>{marketModeLabel}</span>
               <span>CloudBase target: paquant</span>
             </div>
           </div>
@@ -140,6 +152,11 @@ export function Workbench({
               <Activity size={15} /> {activeTraderName}
             </span>
             {sourceLabel ? <span className="source-pill">{sourceLabel}</span> : null}
+            {dataSource ? (
+              <span className="source-pill" title={dataSource.label}>
+                {dataSource.isMock ? "mock data" : dataSource.label}
+              </span>
+            ) : null}
             <span>
               <strong>Last</strong> {latest?.close.toFixed(2)}
             </span>
@@ -182,6 +199,7 @@ export function Workbench({
             {runStatus === "idle" ? "idle" : runStatus}
           </span>
           <span className="model-api-readout">{modelLabel}</span>
+          {runError ? <span className="agent-run-error">{runError}</span> : null}
         </section>
 
         <TraderRosterPanel

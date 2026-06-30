@@ -1,25 +1,16 @@
 import fixtureData from "../fixtures/paquant-demo.json";
-import type { ModelProviderChoice, WorkbenchFixture, WorkbenchMeta } from "./workbenchTypes";
+import type {
+  LiveMarketPayload,
+  ModelProviderChoice,
+  WorkbenchFixture,
+  WorkbenchMeta
+} from "./workbenchTypes";
 
-const API_WORKBENCH_URL = "/api/workbench/demo";
+const API_LIVE_MARKET_URL = "/api/market/xau/live";
 const API_MODEL_PROVIDERS_URL = "/api/model-providers";
 const API_AGENT_RUNS_URL = "/api/agent-runs";
 const fixture = fixtureData as WorkbenchFixture;
 const fallbackProviders: ModelProviderChoice[] = [
-  {
-    id: "mock",
-    name: "Mock local",
-    model: "mock-brooks",
-    apiKeyEnv: null,
-    available: true,
-    capabilities: {
-      text: true,
-      vision: false,
-      structured_output: true,
-      tool_calling: true,
-      context_window: 16000
-    }
-  },
   {
     id: "deepseek",
     name: "DeepSeek",
@@ -81,22 +72,11 @@ const fallbackProviders: ModelProviderChoice[] = [
 export async function loadWorkbenchFixture(
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<WorkbenchFixture> {
-  try {
-    const response = await fetcher(API_WORKBENCH_URL);
-    if (!response.ok) {
-      throw new Error(`PAquant API returned ${response.status}`);
-    }
-    const payload = (await response.json()) as WorkbenchFixture;
-    return {
-      ...payload,
-      meta: payload.meta ?? apiMeta()
-    };
-  } catch {
-    return {
-      ...fixture,
-      meta: fixtureMeta()
-    };
+  const response = await fetcher(API_LIVE_MARKET_URL);
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
   }
+  return workbenchFromLiveMarket((await response.json()) as LiveMarketPayload);
 }
 
 export async function loadModelProviders(
@@ -124,48 +104,63 @@ export async function startAgentRun(
   },
   fetcher: typeof fetch = globalThis.fetch
 ): Promise<WorkbenchFixture> {
-  try {
-    const response = await fetcher(API_AGENT_RUNS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ traderId, modelProvider })
-    });
-    if (!response.ok) {
-      throw new Error(`PAquant API returned ${response.status}`);
-    }
-    return (await response.json()) as WorkbenchFixture;
-  } catch {
-    return {
-      ...fixture,
-      meta: {
-        ...fixtureMeta(),
-        modelProvider: fixture.analysis.modelUsage.provider,
-        model: fixture.analysis.modelUsage.model,
-        startedBy: "user",
-        agentStatus: "completed"
-      }
-    };
+  const response = await fetcher(API_AGENT_RUNS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ traderId, modelProvider })
+  });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
   }
+  return (await response.json()) as WorkbenchFixture;
 }
 
-function apiMeta(): WorkbenchMeta {
+function liveMeta(payload: LiveMarketPayload): WorkbenchMeta {
   return {
-    source: "api",
+    source: "live",
     symbol: "XAUUSD",
     timeframe: "5m",
     traderId: "brooks-generalist",
-    modelProvider: "mock",
-    model: "mock-brooks"
+    agentStatus: "idle",
+    dataSource: payload.source,
+    quote: payload.quote
   };
 }
 
-function fixtureMeta(): WorkbenchMeta {
+function workbenchFromLiveMarket(payload: LiveMarketPayload): WorkbenchFixture {
   return {
-    source: "fixture",
-    symbol: "XAUUSD",
-    timeframe: "5m",
-    traderId: "brooks-generalist",
-    modelProvider: fixture.analysis.modelUsage.provider,
-    model: fixture.analysis.modelUsage.model
+    ...fixture,
+    meta: liveMeta(payload),
+    candles: payload.candles,
+    higherTimeframeContext: [],
+    agentActions: [],
+    chartObjects: [],
+    orders: [],
+    trades: [],
+    tradeSnapshots: [],
+    tradeReplay: [],
+    equityCurve: [],
+    performanceSummary: {
+      starting_equity: 0,
+      ending_equity: 0,
+      total_trades: 0,
+      win_rate: 0,
+      net_pnl: 0,
+      max_drawdown: 0,
+      setup_stats: []
+    },
+    journal: []
   };
+}
+
+async function readApiError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { detail?: unknown };
+    if (typeof payload.detail === "string") {
+      return payload.detail;
+    }
+  } catch {
+    // Keep the final error deterministic when the API returns a non-JSON body.
+  }
+  return `PAquant API returned ${response.status}`;
 }

@@ -56,6 +56,40 @@ def test_openai_compatible_provider_builds_payload_and_usage(monkeypatch):
     assert response.usage.estimated_cost_usd > 0
 
 
+def test_openai_compatible_provider_honors_tool_choice_metadata(monkeypatch):
+    config = build_default_provider_registry()["deepseek"]
+    transport = FakeTransport()
+    monkeypatch.setenv(config.api_key_env, "redact-me-value")
+    provider = OpenAICompatibleProvider(config=config, transport=transport)
+
+    provider.generate(
+        ModelRequest(
+            prompt="Draw a trend line",
+            schema_name="TraderDecision",
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "draw_trendline",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }
+            ],
+            metadata={
+                "tool_choice": {
+                    "type": "function",
+                    "function": {"name": "draw_trendline"},
+                }
+            },
+        )
+    )
+
+    assert transport.calls[0]["payload"]["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "draw_trendline"},
+    }
+
+
 def test_redaction_removes_credentials_from_errors(monkeypatch):
     config = ProviderConfig(
         provider="test",

@@ -43,6 +43,11 @@ def test_demo_fixture_contains_workbench_payload():
     }
     assert all(marker["quantity"] == 1 for marker in trade_markers)
     assert all(marker["reason"] for marker in trade_markers)
+    order = payload["orders"][0]
+    labels_by_type = {marker["marker_type"]: marker["label"] for marker in trade_markers}
+    assert f"Entry {order['entry']:.2f}" in labels_by_type["entry"]
+    assert f"Stop {order['stop']:.2f}" in labels_by_type["stop"]
+    assert f"Target {order['target']:.2f}" in labels_by_type["target"]
     assert [step["stage"] for step in payload["tradeReplay"]] == [
         "pre-entry",
         "plan",
