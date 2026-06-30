@@ -82,6 +82,21 @@ If package downloads fail with `ECONNREFUSED 127.0.0.1:7890`, clear only the cur
 Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyContinue
 ```
 
+## CloudBase Deployment
+
+The frontend is still deployed as CloudBase static hosting. The live API needs CloudBase Run enabled in the same environment before it can be deployed:
+
+```powershell
+pnpm --package=@cloudbase/cli dlx tcb cloudrun deploy `
+  --env-id groy-env-d5g7okht7dcd202fe `
+  --serviceName paquant-api `
+  --port 8000 `
+  --source . `
+  --force
+```
+
+The repository includes a root `Dockerfile` and `.dockerignore` for that API deployment. Do not copy `.env.local` into the image. Configure `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`, and `MOONSHOT_API_KEY` as CloudBase Run environment variables in the console.
+
 ## Implemented Phase-One Slice
 
 - XAUUSD 5-minute deterministic replay data for tests and audit replay.

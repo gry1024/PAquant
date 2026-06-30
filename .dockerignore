@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+.venv
+.pytest_cache
+.ruff_cache
+node_modules
+apps
+docs
+tmp
+test-results
+教材和视频
+*.pyc
+__pycache__
