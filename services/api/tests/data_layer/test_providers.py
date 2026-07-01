@@ -2,6 +2,7 @@ import pytest
 from paquant.data_layer.providers import (
     CsvDownloadSource,
     InMemoryHistoricalDataProvider,
+    MT5HistoricalDataProvider,
     RemoteCsvHistoricalDataProvider,
     YahooGoldFuturesChartProvider,
     normalize_instrument_symbol,
@@ -170,3 +171,69 @@ def test_yahoo_gold_futures_provider_default_timeout_is_ui_bounded():
     provider = YahooGoldFuturesChartProvider()
 
     assert provider.timeout_seconds <= 6
+
+
+class FakeMT5Module:
+    TIMEFRAME_M5 = 5
+
+    def __init__(self) -> None:
+        self.initialized = False
+        self.selected: list[tuple[str, bool]] = []
+        self.calls: list[tuple[str, int, int, int]] = []
+
+    def initialize(self) -> bool:
+        self.initialized = True
+        return True
+
+    def symbol_select(self, symbol: str, enabled: bool) -> bool:
+        self.selected.append((symbol, enabled))
+        return True
+
+    def copy_rates_from_pos(self, symbol: str, timeframe: int, start_pos: int, count: int):
+        self.calls.append((symbol, timeframe, start_pos, count))
+        return [
+            {
+                "time": 1782777600,
+                "open": 4000.0,
+                "high": 4002.0,
+                "low": 3998.0,
+                "close": 4001.0,
+                "tick_volume": 100,
+            },
+            {
+                "time": 1782777900,
+                "open": 4001.0,
+                "high": 4004.0,
+                "low": 4000.5,
+                "close": 4003.0,
+                "tick_volume": 120,
+            },
+            {
+                "time": 1782778200,
+                "open": 4003.0,
+                "high": 4005.0,
+                "low": 4002.0,
+                "close": 4004.0,
+                "tick_volume": 130,
+            },
+        ]
+
+    def last_error(self):
+        return (0, "ok")
+
+
+def test_mt5_provider_uses_reference_snapshot_semantics_and_skips_forming_bar():
+    mt5 = FakeMT5Module()
+    provider = MT5HistoricalDataProvider(mt5_module=mt5, broker_symbol="XAUUSDc", bars=2)
+
+    candles = provider.load_candles("XAUUSDc", "5m")
+
+    assert mt5.initialized is True
+    assert mt5.selected == [("XAUUSDc", True)]
+    assert mt5.calls == [("XAUUSDc", 5, 0, 3)]
+    assert [candle.timestamp.isoformat() for candle in candles] == [
+        "2026-06-30T00:00:00+00:00",
+        "2026-06-30T00:05:00+00:00",
+    ]
+    assert {candle.symbol for candle in candles} == {"XAUUSD"}
+    assert candles[-1].close == 4003.0

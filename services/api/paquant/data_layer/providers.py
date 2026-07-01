@@ -193,6 +193,58 @@ class YahooGoldFuturesChartProvider:
         )
 
 
+class MT5HistoricalDataProvider:
+    """Read closed XAU 5-minute bars from a running MetaTrader 5 terminal.
+
+    The implementation follows the PA_Agent MT5 snapshot semantics:
+    ``copy_rates_from_pos(symbol, timeframe, 0, n + 1)`` returns an oldest-first
+    array whose last row is the current forming bar. Phase-one AI analysis uses
+    closed candles only, so the forming row is skipped.
+    """
+
+    def __init__(
+        self,
+        *,
+        mt5_module: object | None = None,
+        broker_symbol: str = "XAUUSDc",
+        bars: int = 240,
+    ) -> None:
+        self.mt5_module = mt5_module
+        self.broker_symbol = broker_symbol
+        self.bars = bars
+
+    def load_candles(self, symbol: str, timeframe: str) -> list[Candle]:
+        normalized_symbol = normalize_instrument_symbol(symbol)
+        if timeframe != "5m":
+            raise ValueError("MT5 provider supports 5m data only in phase one")
+        if self.bars < 1:
+            raise ValueError("MT5 provider requires at least one closed bar")
+
+        mt5 = self.mt5_module or _import_mt5_module()
+        if not mt5.initialize():
+            last_error = mt5.last_error() if hasattr(mt5, "last_error") else "unknown"
+            raise RuntimeError(f"MT5 initialize() failed: {last_error}")
+        if hasattr(mt5, "symbol_select") and not mt5.symbol_select(self.broker_symbol, True):
+            raise RuntimeError(f"MT5 symbol_select({self.broker_symbol!r}) failed")
+        try:
+            timeframe_const = mt5.TIMEFRAME_M5
+        except AttributeError as exc:
+            raise RuntimeError("MT5 TIMEFRAME_M5 constant is unavailable") from exc
+
+        rates = mt5.copy_rates_from_pos(self.broker_symbol, timeframe_const, 0, self.bars + 1)
+        if rates is None or len(rates) == 0:
+            last_error = mt5.last_error() if hasattr(mt5, "last_error") else "unknown"
+            raise RuntimeError(f"MT5 copy_rates_from_pos failed: {last_error}")
+
+        rows = list(rates)
+        closed_rows = rows[:-1] if len(rows) > self.bars else rows
+        selected_rows = closed_rows[-self.bars :]
+        return [
+            _mt5_rate_to_candle(row, symbol=normalized_symbol, timeframe=timeframe)
+            for row in selected_rows
+        ]
+
+
 def normalize_instrument_symbol(value: str) -> str:
     normalized = value.strip().upper().replace(" ", "")
     if normalized in _XAU_SYMBOL_ALIASES:
@@ -316,3 +368,41 @@ def _value_at(values: list, index: int) -> float | int | None:
 
 def _epoch_to_datetime(value: int) -> datetime:
     return datetime.fromtimestamp(value, tz=UTC)
+
+
+def _import_mt5_module() -> object:
+    try:
+        import MetaTrader5 as mt5  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError(
+            "MetaTrader5 package is not installed; "
+            "install it only in the local MT5 bridge environment"
+        ) from exc
+    return mt5
+
+
+def _mt5_rate_to_candle(row: object, *, symbol: str, timeframe: str) -> Candle:
+    open_price = float(_mt5_row_value(row, "open"))
+    high = float(_mt5_row_value(row, "high"))
+    low = float(_mt5_row_value(row, "low"))
+    close = float(_mt5_row_value(row, "close"))
+    volume = float(
+        _mt5_row_value(row, "tick_volume", _mt5_row_value(row, "real_volume", 0.0))
+    )
+    return Candle(
+        timestamp=_epoch_to_datetime(int(_mt5_row_value(row, "time"))),
+        symbol=symbol,
+        timeframe=timeframe,
+        open=open_price,
+        high=high,
+        low=low,
+        close=close,
+        volume=volume,
+    )
+
+
+def _mt5_row_value(row: object, key: str, default: object | None = None) -> object:
+    try:
+        return row[key]  # type: ignore[index]
+    except (KeyError, TypeError, ValueError, IndexError):
+        return getattr(row, key, default)

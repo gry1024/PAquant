@@ -109,6 +109,9 @@ const YAHOO_CHART_HEADERS = {
   Accept: "application/json,text/plain,*/*",
   "Accept-Language": "en-US,en;q=0.9"
 };
+const DEFAULT_MT5_SYMBOL = "XAUUSDc";
+const DEFAULT_MT5_TIMEFRAME = "5m";
+const DEFAULT_MT5_BARS = 240;
 
 async function handleRequest({ method, url, body = "", fetchImpl = fetch }) {
   if (method === "OPTIONS") {
@@ -151,6 +154,14 @@ async function handleRequest({ method, url, body = "", fetchImpl = fetch }) {
 
 async function loadLiveMarket(fetchImpl = fetch) {
   const failures = [];
+  const mt5BridgeUrl = process.env.PAQUANT_MT5_BRIDGE_URL?.trim();
+  if (mt5BridgeUrl) {
+    try {
+      return await loadMt5BridgeMarket(fetchImpl, mt5BridgeUrl);
+    } catch (error) {
+      failures.push(`mt5 bridge failed: ${sanitizeError(error.message ?? String(error))}`);
+    }
+  }
   for (const endpoint of YAHOO_GOLD_CHART_ENDPOINTS) {
     const hostname = new URL(endpoint.url).hostname;
     let response;
@@ -230,6 +241,147 @@ async function readMarketProviderResult(response, endpoint) {
   return { kind: "candles", payload: JSON.parse(content.slice(firstJsonChar, lastJsonChar + 1)) };
 }
 
+async function loadMt5BridgeMarket(fetchImpl, bridgeUrl) {
+  const requestUrl = mt5BridgeRequestUrl(bridgeUrl);
+  const response = await fetchImpl(requestUrl, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PAquant-CloudBase-MT5-Bridge/0.1"
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`MT5 bridge returned ${response.status}`);
+  }
+  return parseMt5BridgePayload(await response.json());
+}
+
+function mt5BridgeRequestUrl(bridgeUrl) {
+  const url = new URL(bridgeUrl);
+  if (!url.searchParams.has("symbol")) {
+    url.searchParams.set("symbol", process.env.PAQUANT_MT5_SYMBOL ?? DEFAULT_MT5_SYMBOL);
+  }
+  if (!url.searchParams.has("timeframe")) {
+    url.searchParams.set("timeframe", process.env.PAQUANT_MT5_TIMEFRAME ?? DEFAULT_MT5_TIMEFRAME);
+  }
+  if (!url.searchParams.has("bars")) {
+    url.searchParams.set("bars", String(mt5BarLimit()));
+  }
+  return url.toString();
+}
+
+function parseMt5BridgePayload(payload) {
+  const brokerSymbol = String(payload?.symbol ?? process.env.PAQUANT_MT5_SYMBOL ?? DEFAULT_MT5_SYMBOL);
+  const timeframe = String(payload?.timeframe ?? DEFAULT_MT5_TIMEFRAME);
+  if (timeframe !== "5m") {
+    throw new Error(`MT5 bridge returned unsupported timeframe: ${timeframe}`);
+  }
+  const newestFirstRows = Array.isArray(payload?.barsNewestFirst)
+    ? payload.barsNewestFirst
+    : Array.isArray(payload?.bars_newest_first)
+      ? payload.bars_newest_first
+      : null;
+  const rawRows = newestFirstRows ?? payload?.rates ?? payload?.candles;
+  if (!Array.isArray(rawRows) || rawRows.length === 0) {
+    throw new Error("MT5 bridge returned no bars");
+  }
+
+  const rowsOldestFirst = newestFirstRows
+    ? [...rawRows].filter((row) => row?.closed !== false).reverse()
+    : [...rawRows].filter((row, index) => row?.closed !== false || index !== rawRows.length - 1);
+  const candles = rowsOldestFirst
+    .slice(-mt5BarLimit())
+    .map((row, index) => normalizeMt5BridgeCandle(row, index))
+    .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
+  if (candles.length < 20) {
+    throw new Error(`MT5 bridge returned only ${candles.length} closed 5m bars`);
+  }
+
+  const formingRow = newestFirstRows
+    ? rawRows.find((row) => row?.closed === false) ?? rawRows[0]
+    : rawRows.at(-1);
+  const tick = payload?.tick ?? payload?.quote ?? {};
+  const last = candles.at(-1);
+  const bid = optionalNumber(tick.bid);
+  const ask = optionalNumber(tick.ask);
+  const price =
+    optionalNumber(tick.last) ??
+    optionalNumber(tick.price) ??
+    (bid != null && ask != null ? round4((bid + ask) / 2) : null) ??
+    optionalNumber(formingRow?.close) ??
+    last.close;
+  return {
+    source: {
+      id: "mt5_bridge_xauusd_5m",
+      label: `MT5 / MetaTrader 5 ${brokerSymbol} 5分钟`,
+      instrumentSymbol: brokerSymbol,
+      instrumentKind: "mt5_broker",
+      isSpot: true,
+      isMock: false,
+      historyCompleteness: "historical_5m",
+      latency: "broker_terminal"
+    },
+    quote: {
+      symbol: "XAUUSD",
+      price: round4(price),
+      ...(bid == null ? {} : { bid: round4(bid) }),
+      ...(ask == null ? {} : { ask: round4(ask) }),
+      timestamp: mt5TimestampToIso(tick.time_msc ?? tick.time ?? tick.timestamp ?? formingRow?.time ?? last.timestamp),
+      providerSymbol: brokerSymbol
+    },
+    candles,
+    chartObjects: marketStructureObjects(candles, "MT5")
+  };
+}
+
+function normalizeMt5BridgeCandle(row, index) {
+  const open = numberOrThrow(row?.open, `mt5.bars[${index}].open`);
+  const high = numberOrThrow(row?.high, `mt5.bars[${index}].high`);
+  const low = numberOrThrow(row?.low, `mt5.bars[${index}].low`);
+  const close = numberOrThrow(row?.close, `mt5.bars[${index}].close`);
+  if (high < Math.max(open, close) || low > Math.min(open, close) || high < low) {
+    throw new Error(`invalid MT5 OHLC range at row ${index}`);
+  }
+  const range = high - low;
+  return {
+    timestamp: mt5TimestampToIso(row?.timestamp ?? row?.time ?? row?.ts_open),
+    symbol: "XAUUSD",
+    timeframe: "5m",
+    open: round4(open),
+    high: round4(high),
+    low: round4(low),
+    close: round4(close),
+    volume: Number(row?.tick_volume ?? row?.real_volume ?? row?.volume ?? 0),
+    body: round4(Math.abs(close - open)),
+    range: round4(range),
+    close_position: range === 0 ? 0.5 : round4((close - low) / range)
+  };
+}
+
+function mt5TimestampToIso(value) {
+  if (value == null) {
+    return new Date().toISOString();
+  }
+  if (typeof value === "string") {
+    const timestamp = new Date(value);
+    if (!Number.isNaN(timestamp.getTime())) {
+      return timestamp.toISOString();
+    }
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`invalid MT5 timestamp: ${value}`);
+  }
+  return new Date(numeric > 1000000000000 ? numeric : numeric * 1000).toISOString();
+}
+
+function mt5BarLimit() {
+  const configured = Number(process.env.PAQUANT_MT5_BARS);
+  if (Number.isFinite(configured) && configured >= 20) {
+    return Math.min(Math.floor(configured), 500);
+  }
+  return DEFAULT_MT5_BARS;
+}
+
 function liveMarketPayload(candles, endpoint) {
   const last = candles[candles.length - 1];
   return {
@@ -249,7 +401,8 @@ function liveMarketPayload(candles, endpoint) {
       timestamp: last.timestamp,
       providerSymbol: "GC=F"
     },
-    candles
+    candles,
+    chartObjects: marketStructureObjects(candles, endpoint.id)
   };
 }
 
@@ -387,6 +540,17 @@ async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl
   ];
   const analysisText = responses.map((response) => response.text).filter(Boolean).join(" ");
   const usage = mergeUsage(modelProvider, config.model, responses, config);
+  const thinkingSteps = visibleThinkingSteps({
+    candles,
+    market,
+    order,
+    refs,
+    drawingResult,
+    modelProvider,
+    model: config.model,
+    bias
+  });
+  const decisionTrace = visibleDecisionTrace({ order, bias, high, low, drawingResult });
   const tradeReason =
     `${config.name} 模型 API 已返回工具调用，PAquant 已执行绘图和测量工具。` +
     `${describeExecutionPlan(order)}` +
@@ -443,6 +607,8 @@ async function createAgentRun({ traderId, modelProvider, clientMarket, fetchImpl
         bias,
         toolNames: drawingResult.actions.map((action) => action.tool)
       }),
+      thinkingSteps,
+      decisionTrace,
       knowledgeRefs: refs,
       evidenceTrail: [
         "实时行情数据来自非 mock provider。",
@@ -830,6 +996,54 @@ function parseYahooCandles(result) {
   return candles;
 }
 
+function marketStructureObjects(candles, sourceLabel = "live") {
+  if (!Array.isArray(candles) || candles.length < 20) {
+    return [];
+  }
+  const lastIndex = candles.length - 1;
+  const rangeStart = Math.max(0, candles.length - 36);
+  const recent = candles.slice(rangeStart);
+  const rangeHigh = Math.max(...recent.map((candle) => candle.high));
+  const rangeLow = Math.min(...recent.map((candle) => candle.low));
+  const direction = candles[lastIndex].close >= candles[rangeStart].open ? "long" : "short";
+  const swings = findSwings(candles, 2, 2, null);
+  const swingKind = direction === "long" ? "low" : "high";
+  const structureSwings = swings
+    .filter((swing) => swing.kind === swingKind && swing.anchor.time_index >= Math.max(0, lastIndex - 72))
+    .slice(-2);
+  const fallbackStart = Math.max(0, lastIndex - Math.min(24, candles.length - 1));
+  const trendStart =
+    structureSwings[0]?.anchor ?? {
+      time_index: fallbackStart,
+      price: direction === "long" ? candles[fallbackStart].low : candles[fallbackStart].high
+    };
+  const trendEnd =
+    structureSwings[1]?.anchor ?? {
+      time_index: lastIndex,
+      price: direction === "long" ? candles[lastIndex].close : candles[lastIndex].close
+    };
+  const [boundedStart, boundedEnd] = boundedAnchorPair(trendStart, trendEnd);
+  return [
+    {
+      kind: "range_box",
+      id: `${sourceLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-structure-range`,
+      label: "最近结构箱体",
+      start_index: rangeStart,
+      end_index: lastIndex,
+      high: round2(rangeHigh),
+      low: round2(rangeLow),
+      reason: `${sourceLabel} 实时行情识别的有限范围结构箱体，用于观察最近 ${lastIndex - rangeStart + 1} 根K线的交易区间边界。`
+    },
+    {
+      kind: "trendline",
+      id: `${sourceLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-structure-trend`,
+      label: direction === "long" ? "最近多头结构线" : "最近空头结构线",
+      anchors: [boundedStart, boundedEnd],
+      reason: `${sourceLabel} 实时行情识别的有限范围趋势线，锚定在K线索引和价格坐标上，缩放和平移时随K线重投影。`
+    }
+  ];
+}
+
 function analysisPrompt({ candles, first, last, high, low, refs }) {
   const recent = candles.slice(-8).map((candle, offset) => ({
     index: candles.length - 8 + offset,
@@ -1033,6 +1247,88 @@ function visibleChineseReasoningSummary({ analysisText, modelName, order, bias, 
   );
 }
 
+function visibleThinkingSteps({ candles, market, order, refs, drawingResult, modelProvider, model, bias }) {
+  const lastIndex = candles.length - 1;
+  const signal = order.execution_plan;
+  return [
+    {
+      phase: "observe",
+      title: "读取行情",
+      summary: `读取 ${candles.length} 根 XAUUSD 5分钟已收盘K线，最新收盘 ${candles[lastIndex].close.toFixed(2)}。`,
+      evidence: [
+        `数据源：${market.source.label}`,
+        `最新报价：${market.quote.price.toFixed(2)}`
+      ]
+    },
+    {
+      phase: "retrieve",
+      title: "检索 Brooks 知识",
+      summary: "检索上下文优先、始终在场、回调和交易员方程相关条目。",
+      evidence: refs.map((ref) => `${ref.key} ${Math.round(ref.score * 100)}%`)
+    },
+    {
+      phase: "measure",
+      title: "调用工具测量",
+      summary: `模型返回工具调用后，PAquant 执行 ${drawingResult.actions.length} 个绘图/测量动作。`,
+      evidence: drawingResult.actions.map((action) => action.tool)
+    },
+    {
+      phase: "hypothesis",
+      title: "形成交易假设",
+      summary: `始终在场方向按 ${bias === "short" ? "空头" : "多头"} 评估，候选 setup 为 ${order.setup_name}。`,
+      evidence: [
+        `信号K线：第 ${signal.signal_bar_index + 1} 根`,
+        `触发条件：${signal.trigger_condition}`
+      ]
+    },
+    {
+      phase: "risk",
+      title: "检查失效和风险回报",
+      summary: `入场 ${order.entry.toFixed(2)}，止损 ${order.stop.toFixed(2)}，止盈 ${order.target.toFixed(2)}，仓位 ${order.quantity}。`,
+      evidence: [
+        `风险点数：${round2(Math.abs(order.entry - order.stop))}`,
+        `目标点数：${round2(Math.abs(order.target - order.entry))}`
+      ]
+    },
+    {
+      phase: "decision",
+      title: "输出决策",
+      summary: `${modelProvider} / ${model} 通过工具证据形成 ${signal.order_type_label} 模拟订单；未启用真实 broker。`,
+      evidence: [`订单类型：${order.order_type}`, `触发价：${signal.trigger_price.toFixed(2)}`]
+    }
+  ];
+}
+
+function visibleDecisionTrace({ order, bias, high, low, drawingResult }) {
+  const signal = order.execution_plan;
+  return [
+    {
+      question: "当前方向是否清楚？",
+      answer: `按最近K线和工具测量，始终在场方向暂按 ${bias === "short" ? "空头" : "多头"} 处理。`,
+      outcome: "pass",
+      evidence: `窗口高点 ${round2(high)}，低点 ${round2(low)}。`
+    },
+    {
+      question: "模型是否真的调用工具？",
+      answer: `已执行 ${drawingResult.actions.map((action) => action.tool).join("、")}。`,
+      outcome: "pass",
+      evidence: "绘图对象和测量输出已进入 agentActions 与 chartObjects。"
+    },
+    {
+      question: "是否有具体订单？",
+      answer: `${signal.order_type_label}，信号K线第 ${signal.signal_bar_index + 1} 根，触发价 ${signal.trigger_price.toFixed(2)}。`,
+      outcome: "pass",
+      evidence: signal.trigger_condition
+    },
+    {
+      question: "风险是否可审计？",
+      answer: `下单计划包含入场 ${order.entry.toFixed(2)}、止损 ${order.stop.toFixed(2)}、止盈 ${order.target.toFixed(2)}、仓位 ${order.quantity}。`,
+      outcome: "pass",
+      evidence: "止损、止盈、入场和仓位同步绘制为图表 trade_marker。"
+    }
+  ];
+}
+
 function containsChinese(text) {
   return /[\u3400-\u9fff]/.test(text);
 }
@@ -1207,19 +1503,177 @@ function knowledgeRefs() {
 }
 
 function traderProfiles() {
+  const tools = [
+    "find_swings",
+    "draw_trendline",
+    "draw_channel",
+    "draw_box",
+    "draw_fibonacci",
+    "measure_leg",
+    "compare_legs",
+    "count_bars",
+    "project_line",
+    "measure_deviation",
+    "snap_to_swing"
+  ];
+  const sharedKnowledgeFiles = [
+    ".agents/common/price-action-core.md",
+    ".agents/common/risk-control.md"
+  ];
+  const base = (id) => ({
+    agentFile: `.agents/traders/${id}.md`,
+    sharedKnowledgeFiles,
+    sharedKnowledgeSummary: "Shared Price Action Core / Shared Risk Control"
+  });
   return [
     {
       id: "brooks-generalist",
-      name: "Brooks 通用交易员",
-      persona: "由真实模型支持的价格行为模拟交易员，下模拟订单前必须调用工具。",
+      ...base("brooks-generalist"),
+      name: "布鲁克斯通用交易员",
+      persona: "均衡型价格行为模拟交易员，先检查上下文，再给形态贴标签。",
       status: "active",
       symbol: "XAUUSD",
       timeframe: "5m",
-      preferredSetups: ["始终在场回调", "突破失败", "三推"],
-      riskStyle: "可见失效位确认后，只使用一单位模拟风险",
-      toolPermissions: ["find_swings", "draw_trendline", "measure_leg", "count_bars"],
-      knowledgePolicy: "检索已编译 Brooks 检查清单和形态档案",
+      preferredSetups: ["始终在场回调", "二次入场", "突破失败", "三推"],
+      riskStyle: "中等风险；上下文和交易员方程确认后使用一单位模拟风险。",
+      toolPermissions: tools,
+      knowledgePolicy: "检索概念图谱、形态档案和相似失败案例。",
       recentAction: "等待用户启动；不会自动调用模型。",
+      performance: { equity: 10020, winRate: 1, maxDrawdown: 0, trades: 1, averageR: 2 }
+    },
+    {
+      id: "always-in-trend",
+      ...base("always-in-trend"),
+      name: "始终在场趋势交易员",
+      persona: "跟踪始终在场方向、趋势紧迫性、回调质量和趋势恢复。",
+      status: "standby",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["始终在场回调", "微通道", "趋势恢复"],
+      riskStyle: "趋势跟随；只有强上下文确认后才接受更宽止损。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索趋势、通道、始终在场和强趋势推演手册。",
+      recentAction: "等待清晰的始终在场多空转换。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "second-entry",
+      ...base("second-entry"),
+      name: "二次入场专家",
+      persona: "等待 High 2 / Low 2 二次触发，只在第一次尝试失败后重新评估顺势机会。",
+      status: "standby",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["High 2 回调", "Low 2 回调", "二次入场趋势恢复"],
+      riskStyle: "保守；第二信号K线必须给出清晰触发价和失效价。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索二次入场、回调质量、信号K线和交易员方程档案。",
+      recentAction: "等待第一次尝试失败后的 H2/L2 信号K线。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "best-trades-only",
+      ...base("best-trades-only"),
+      name: "精选交易保守派",
+      persona: "强过滤交易机会；交易员方程不够清楚时接受不交易。",
+      status: "standby",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["High 2 回调", "Low 2 回调", "主要趋势反转"],
+      riskStyle: "保守；概率和回报不清晰时只用小仓位或不下单。",
+      toolPermissions: tools,
+      knowledgePolicy: "检索交易员方程、信号K线质量和失败模式案例。",
+      recentAction: "因信号质量混杂，拒绝边缘回调机会。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "trading-range-scalper",
+      ...base("trading-range-scalper"),
+      name: "交易区间剥头皮员",
+      persona: "把交易区间视为不确定状态，偏向低买高卖测试。",
+      status: "standby",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["区间反向", "突破失败", "微型双顶/双底"],
+      riskStyle: "剥头皮；快速退出，靠近区间中线时减仓。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索交易区间、突破失败和支撑阻力案例。",
+      recentAction: "观察当前通道是否演化为成熟交易区间。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "breakout-pullback",
+      ...base("breakout-pullback"),
+      name: "突破回调交易员",
+      persona: "只在突破已经证明自己之后等待回测确认，拒绝普通回调伪装成突破回调。",
+      status: "standby",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["突破回调", "强突破跟进", "等距测量目标"],
+      riskStyle: "事件驱动；仓位取决于突破跟进、回测质量和止损距离。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索突破回调、等距测量、失败突破和通道投影档案。",
+      recentAction: "等待突破后续跟进确认，再接受回测入场。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "wedge-reversal",
+      ...base("wedge-reversal"),
+      name: "楔形反转专家",
+      persona: "研究三推、过冲、欠冲、动能衰减和反转风险。",
+      status: "research",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["楔形反转", "三推", "最终旗形"],
+      riskStyle: "反转型；需要清晰失效位和衰竭后的确认。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索楔形、三推、最终旗形和动能变化案例。",
+      recentAction: "正在标记三推候选，但等待更清晰的信号K线。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "breakout-failure",
+      ...base("breakout-failure"),
+      name: "突破失败交易员",
+      persona: "评估突破力度、后续跟进、被套交易者和失败入场。",
+      status: "research",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["突破回调", "突破失败", "等距测量"],
+      riskStyle: "事件驱动；仓位取决于突破跟进和止损距离。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索突破、失败、等距测量和交易者陷阱案例。",
+      recentAction: "正在比较突破跟进和等距测量目标。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "major-reversal",
+      ...base("major-reversal"),
+      name: "主要趋势反转专家",
+      persona: "等待趋势线突破、极点测试失败和强反向突破同时出现。",
+      status: "research",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["主要趋势反转", "趋势线突破后测试", "反向二次入场"],
+      riskStyle: "反转确认；结构完成前不提前摸顶摸底。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索主要趋势反转、楔形、最终旗形和始终在场翻转档案。",
+      recentAction: "检查趋势线突破加极点测试失败是否完整。",
+      performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
+    },
+    {
+      id: "final-flag",
+      ...base("final-flag"),
+      name: "最终旗形交易员",
+      persona: "观察成熟趋势末端的最终旗形失败和顺势交易者被套压力。",
+      status: "research",
+      symbol: "XAUUSD",
+      timeframe: "5m",
+      preferredSetups: ["最终旗形", "失败延续", "楔形后的反向突破"],
+      riskStyle: "精选反转；等待失败延续和清晰信号K线后才提交 Stop 单。",
+      toolPermissions: tools,
+      knowledgePolicy: "优先检索最终旗形、失败突破、楔形和交易者陷阱案例。",
+      recentAction: "观察成熟趋势里的顺势延续失败。",
       performance: { equity: 10000, winRate: 0, maxDrawdown: 0, trades: 0, averageR: 0 }
     }
   ];
@@ -1302,6 +1756,14 @@ function numberOrThrow(value, fieldName) {
     throw new Error(`missing numeric ${fieldName}`);
   }
   return number;
+}
+
+function optionalNumber(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function finiteNumber(value, fieldName) {

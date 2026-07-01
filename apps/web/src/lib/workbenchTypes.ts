@@ -119,6 +119,20 @@ export interface AgentAction {
   chartObjectId: string | null;
 }
 
+export interface ThinkingStep {
+  phase: "observe" | "retrieve" | "measure" | "hypothesis" | "risk" | "decision" | string;
+  title: string;
+  summary: string;
+  evidence: string[];
+}
+
+export interface DecisionTraceStep {
+  question: string;
+  answer: string;
+  outcome: "pass" | "warn" | "fail" | string;
+  evidence: string;
+}
+
 export interface Analysis {
   traderId: string;
   marketContext: string;
@@ -135,6 +149,8 @@ export interface Analysis {
   noTradeReason: string | null;
   confidence: number;
   reasoningSummary: string;
+  thinkingSteps?: ThinkingStep[];
+  decisionTrace?: DecisionTraceStep[];
   knowledgeRefs: KnowledgeRef[];
   evidenceTrail: string[];
   modelUsage: {
@@ -278,6 +294,7 @@ export interface LiveMarketPayload {
   source: LiveMarketSource;
   quote: LiveMarketQuote;
   candles: Candle[];
+  chartObjects?: ChartObject[];
 }
 
 export interface WorkbenchMeta {

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 import fixtureData from "./fixtures/paquant-demo.json";
-import type { LiveMarketPayload, WorkbenchFixture } from "./lib/workbenchTypes";
+import type { LiveMarketPayload, TraderProfile, WorkbenchFixture } from "./lib/workbenchTypes";
 
 const fixture = fixtureData as WorkbenchFixture;
 const livePayload: LiveMarketPayload = {
@@ -25,6 +25,46 @@ const livePayload: LiveMarketPayload = {
   },
   candles: fixture.candles
 };
+
+const traderIds = [
+  "brooks-generalist",
+  "always-in-trend",
+  "second-entry",
+  "best-trades-only",
+  "trading-range-scalper",
+  "breakout-pullback",
+  "wedge-reversal",
+  "breakout-failure",
+  "major-reversal",
+  "final-flag"
+];
+
+const apiTraderProfiles: TraderProfile[] = traderIds.map((id, index) => ({
+  id,
+  name: `Brooks strategy ${index + 1}`,
+  persona: `Auditable Brooks setup trader ${id}`,
+  status: index === 0 ? "active" : index < 6 ? "standby" : "research",
+  symbol: "XAUUSD",
+  timeframe: "5m",
+  preferredSetups: [`setup-${index + 1}`, "signal bar", "risk equation"],
+  riskStyle: "One unit risk after signal bar confirmation.",
+  toolPermissions: ["draw_trendline", "draw_box", "measure_leg", "snap_to_swing"],
+  knowledgePolicy: "Use Brooks setup dossiers before decisions.",
+  agentFile: `.agents/traders/${id}.md`,
+  sharedKnowledgeFiles: [
+    ".agents/common/price-action-core.md",
+    ".agents/common/risk-control.md"
+  ],
+  sharedKnowledgeSummary: "Shared Price Action Core / Shared Risk Control",
+  recentAction: `Waiting for ${id} signal.`,
+  performance: {
+    equity: 10_000 + index * 10,
+    winRate: index === 0 ? 1 : 0,
+    maxDrawdown: index * 0.1,
+    trades: index === 0 ? 1 : 0,
+    averageR: index === 0 ? 2 : 0
+  }
+}));
 
 async function flushMicrotasks(times = 8) {
   for (let index = 0; index < times; index += 1) {
@@ -126,6 +166,12 @@ beforeEach(() => {
           })
         };
       }
+      if (url === "/api/traders") {
+        return {
+          ok: true,
+          json: async () => ({ traders: apiTraderProfiles })
+        };
+      }
       if (url === "/api/agent-runs") {
         return {
           ok: true,
@@ -172,6 +218,71 @@ test("渲染中文双栏交易终端，启动前不会展示 AI 订单或绘图�
   expect(screen.getByText(/窗口 \d+ 根/i)).toBeInTheDocument();
 });
 
+test("实时行情返回的 MT5 结构对象会直接附着在 K 线上", async () => {
+  const lastIndex = fixture.candles.length - 1;
+  const structureStart = Math.max(0, lastIndex - 18);
+  const structureEnd = Math.max(structureStart, lastIndex - 4);
+  const marketWithStructureObjects: LiveMarketPayload = {
+    ...livePayload,
+    source: {
+      ...livePayload.source,
+      id: "mt5_bridge_xauusd_5m",
+      label: "MT5 / MetaTrader 5 XAUUSDc 5分钟",
+      instrumentSymbol: "XAUUSDc",
+      instrumentKind: "mt5_broker",
+      isSpot: true,
+      historyCompleteness: "historical_5m",
+      latency: "broker_terminal"
+    },
+    chartObjects: [
+      {
+        kind: "range_box",
+        id: "mt5-structure-range",
+        label: "MT5 最近结构箱体",
+        start_index: structureStart,
+        end_index: structureEnd,
+        high: Math.max(...fixture.candles.slice(structureStart, structureEnd + 1).map((candle) => candle.high)),
+        low: Math.min(...fixture.candles.slice(structureStart, structureEnd + 1).map((candle) => candle.low)),
+        reason: "MT5 实时行情识别的有限范围结构箱体。"
+      },
+      {
+        kind: "trendline",
+        id: "mt5-structure-trend",
+        label: "MT5 最近趋势线",
+        anchors: [
+          { time_index: structureStart, price: fixture.candles[structureStart].low },
+          { time_index: lastIndex, price: fixture.candles[lastIndex].close }
+        ],
+        reason: "MT5 实时行情识别的有限范围趋势线。"
+      }
+    ]
+  };
+  vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === "/api/market/xau/live") {
+      return { ok: true, json: async () => marketWithStructureObjects } as Response;
+    }
+    if (url === "/api/model-providers") {
+      return { ok: true, json: async () => ({ providers: [] }) } as Response;
+    }
+    if (url === "/api/traders") {
+      return { ok: true, json: async () => ({ traders: [] }) } as Response;
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  });
+
+  render(<App />);
+  await waitForWorkbench();
+
+  await waitFor(() =>
+    expect(document.querySelector('[data-object-id="mt5-structure-range"]')).toBeInTheDocument()
+  );
+  await waitFor(() =>
+    expect(document.querySelector('[data-object-id="mt5-structure-trend"]')).toBeInTheDocument()
+  );
+  expect(screen.queryByText(/模拟订单/i)).not.toBeInTheDocument();
+});
+
 test("用户启动后，AI 交易员会按模型调用、绘图工具、下单策略逐步输出", async () => {
   render(<App />);
   await waitForWorkbench();
@@ -186,6 +297,9 @@ test("用户启动后，AI 交易员会按模型调用、绘图工具、下单�
   expect(await screen.findByText("draw_channel", undefined, { timeout: 6_000 })).toBeInTheDocument();
   expect(await screen.findByText("measure_deviation", undefined, { timeout: 6_000 })).toBeInTheDocument();
   const analysisPanel = screen.getByLabelText("AI 交易员分析");
+  const decisionPanel = within(analysisPanel).getByLabelText("交易员思考和决策");
+  expect(within(decisionPanel).getByText("决策轨迹")).toBeInTheDocument();
+  expect(within(decisionPanel).getAllByText(/订单类型|触发价|信号K线|风险回报/).length).toBeGreaterThan(0);
   expect(within(analysisPanel).getByText("结构化思考")).toBeInTheDocument();
   expect(within(analysisPanel).getByText("1 市场上下文")).toBeInTheDocument();
   expect(within(analysisPanel).getByText("2 始终在场方向")).toBeInTheDocument();
@@ -194,7 +308,7 @@ test("用户启动后，AI 交易员会按模型调用、绘图工具、下单�
   expect(within(analysisPanel).getByText("5 交易假设")).toBeInTheDocument();
   expect(within(analysisPanel).getByText("6 失效与计划")).toBeInTheDocument();
   expect(within(analysisPanel).getByText(/趋势强度/i)).toBeInTheDocument();
-  expect(within(analysisPanel).getByText(/交易区间/i)).toBeInTheDocument();
+  expect(within(analysisPanel).getAllByText(/交易区间/i).length).toBeGreaterThan(0);
   expect(within(analysisPanel).getByText(/失效条件/i)).toBeInTheDocument();
   expect((await screen.findAllByText(/交易理由/i, undefined, { timeout: 6_000 })).length).toBeGreaterThan(0);
   expect(await screen.findByText(/下单策略/i, undefined, { timeout: 6_000 })).toBeInTheDocument();
@@ -276,6 +390,10 @@ test("左侧导航提供主界面、AI交易员图谱和价格行为知识库三
   expect(screen.getByText("始终在场趋势交易员")).toBeInTheDocument();
   expect(screen.getByText(/收益曲线/i)).toBeInTheDocument();
   expect(screen.getByText(".agents/traders/always-in-trend.md")).toBeInTheDocument();
+  expect(document.querySelectorAll(".trader-roster-card")).toHaveLength(apiTraderProfiles.length);
+  expect(screen.getByText("10 位交易员")).toBeInTheDocument();
+  expect(screen.getByText(".agents/traders/second-entry.md")).toBeInTheDocument();
+  expect(screen.getByText(".agents/traders/final-flag.md")).toBeInTheDocument();
   expect(screen.getByText(".agents/common/price-action-core.md")).toBeInTheDocument();
   expect(screen.getByText(".agents/common/risk-control.md")).toBeInTheDocument();
   expect(screen.getByText(/Shared Price Action Core \/ Shared Risk Control/i)).toBeInTheDocument();

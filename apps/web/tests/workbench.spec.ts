@@ -238,9 +238,9 @@ test("renders the live desktop trading workstation", async ({ page }) => {
     });
     expect(postRunLayout.bodyScrollHeight).toBeLessThanOrEqual(postRunLayout.viewportHeight + 4);
     expect(postRunLayout.aiScrollHeight).toBeLessThanOrEqual(postRunLayout.aiClientHeight + 8);
-    expect(postRunLayout.quoteHeight).toBeGreaterThan(70);
-    expect(postRunLayout.quoteHeight).toBeLessThan(96);
-    expect(postRunLayout.chartStageHeight).toBeGreaterThan(680);
+    expect(postRunLayout.quoteHeight).toBeGreaterThan(52);
+    expect(postRunLayout.quoteHeight).toBeLessThan(72);
+    expect(postRunLayout.chartStageHeight).toBeGreaterThan(700);
     expect(postRunLayout.actionRows).toBeGreaterThanOrEqual(3);
     expect(postRunLayout.latestClose).toBeCloseTo(postRunLayout.quotePrice, 2);
   } else {

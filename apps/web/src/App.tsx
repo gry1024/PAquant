@@ -118,7 +118,9 @@ export default function App() {
         startAgentRun({ traderId, modelProvider, market })
       }
       sourceLabel={
-        workbenchFixture.meta?.dataSource?.historyCompleteness === "historical_5m"
+        workbenchFixture.meta?.dataSource?.instrumentKind === "mt5_broker"
+          ? "MT5 XAUUSDc 5分钟K线 + broker实时报价"
+          : workbenchFixture.meta?.dataSource?.historyCompleteness === "historical_5m"
           ? "浏览器5分钟K线 + 实时报价"
           : workbenchFixture.meta?.source === "live"
             ? "实时行情 API"
@@ -138,6 +140,7 @@ function mergeLiveMarketIntoFixture(
   return {
     ...current,
     candles: alignCandlesWithQuote(baseCandles, quote),
+    chartObjects: mergeLiveChartObjects(current.chartObjects, liveMarket.chartObjects),
     meta: {
       ...current.meta,
       source: current.meta?.source ?? "live",
@@ -150,6 +153,17 @@ function mergeLiveMarketIntoFixture(
         : current.meta?.dataSource ?? liveMarket.source
     }
   };
+}
+
+function mergeLiveChartObjects(
+  currentObjects: WorkbenchFixture["chartObjects"],
+  liveObjects: LiveMarketPayload["chartObjects"] = []
+) {
+  if (!liveObjects.length) {
+    return currentObjects;
+  }
+  const liveIds = new Set(liveObjects.map((object) => object.id));
+  return [...currentObjects.filter((object) => !liveIds.has(object.id)), ...liveObjects];
 }
 
 function alignFixtureWithQuote(fixture: WorkbenchFixture): WorkbenchFixture {

@@ -452,7 +452,7 @@ function TradeMarker({
   const label = formatTradeMarkerLabel(object);
   const labelX = clamp(lineX2 - 4, geometry.plotLeft + 112, geometry.plotRight - 8);
   const labelY = clamp(point.y - 7, geometry.plotTop + 14, geometry.plotBottom - 8);
-  const labelWidth = Math.min(220, Math.max(96, label.length * 9.2));
+  const labelWidth = Math.min(176, Math.max(88, label.length * 7.6));
   const reason = objectReason(object, "交易标记只覆盖本笔订单的计划观察窗口。");
   const dotVisible = object.time_index >= indexOffset && object.time_index < indexOffset + candles.length;
 
@@ -478,10 +478,10 @@ function TradeMarker({
       <rect
         className={`trade-marker-label-bg ${object.marker_type}`}
         x={labelX - labelWidth}
-        y={labelY - 14}
+        y={labelY - 12}
         width={labelWidth}
-        height={24}
-        rx={5}
+        height={20}
+        rx={4}
       />
       <text
         className={`trade-marker-label ${object.marker_type}`}

@@ -132,6 +132,9 @@ export function formatMarketMode(source?: LiveMarketSource): string {
   if (source?.historyCompleteness === "latest_quote_only") {
     return "仅实时 XAU 现货报价，暂缺完整 5 分钟历史 K 线";
   }
+  if (source?.instrumentKind === "mt5_broker") {
+    return "MT5 读取 XAUUSDc 5 分钟已收盘 K 线，叠加 broker 实时报价";
+  }
   if (source?.historyCompleteness === "historical_5m") {
     return "浏览器加载 XAUUSD 5 分钟历史 K 线，叠加实时报价";
   }
@@ -150,6 +153,9 @@ export function formatSourceLabel(source?: LiveMarketSource): string {
   }
   if (source.instrumentKind === "futures_proxy") {
     return "GC=F 期货代理";
+  }
+  if (source.instrumentKind === "mt5_broker") {
+    return "MT5 XAUUSDc 5 分钟";
   }
   if (source.historyCompleteness === "latest_quote_only") {
     return "Gold API XAU/USD 实时报价";

@@ -52,6 +52,85 @@ describe("paquant CloudBase HTTP API", () => {
     assert.equal(payload.candles.at(-1).close, 2341);
   });
 
+  test("CloudBase traders endpoint exposes the full Brooks strategy roster", async () => {
+    const response = await handleRequest({ method: "GET", url: "/api/traders" });
+
+    assert.equal(response.statusCode, 200);
+    const payload = JSON.parse(response.body);
+    const ids = payload.traders.map((trader) => trader.id);
+    assert.ok(payload.traders.length >= 10);
+    assert.deepEqual(ids.slice(0, 5), [
+      "brooks-generalist",
+      "always-in-trend",
+      "second-entry",
+      "best-trades-only",
+      "trading-range-scalper"
+    ]);
+    assert.ok(ids.includes("wedge-reversal"));
+    assert.ok(ids.includes("breakout-failure"));
+    assert.ok(ids.includes("major-reversal"));
+    for (const trader of payload.traders) {
+      assert.equal(trader.symbol, "XAUUSD");
+      assert.equal(trader.timeframe, "5m");
+      assert.ok(trader.agentFile.endsWith(`${trader.id}.md`));
+      assert.ok(trader.preferredSetups.length >= 2);
+      assert.ok(trader.toolPermissions.includes("draw_trendline"));
+      assert.ok(trader.sharedKnowledgeFiles.length >= 2);
+    }
+  });
+
+  test("loads MT5 bridge candles before public quote providers and creates finite structure objects", async () => {
+    process.env.PAQUANT_MT5_BRIDGE_URL = "https://mt5-bridge.local/snapshot";
+    process.env.PAQUANT_MT5_SYMBOL = "XAUUSDc";
+    process.env.PAQUANT_MT5_BARS = "24";
+    const requests = [];
+    try {
+      const payload = await loadLiveMarket(async (url) => {
+        const key = String(url);
+        requests.push(key);
+        if (key.includes("mt5-bridge.local")) {
+          return okJson(mt5BridgePayload());
+        }
+        throw new Error(`fallback provider should not be called: ${key}`);
+      });
+
+      assert.equal(requests.length, 1);
+      assert.match(requests[0], /symbol=XAUUSDc/);
+      assert.match(requests[0], /timeframe=5m/);
+      assert.equal(payload.source.id, "mt5_bridge_xauusd_5m");
+      assert.equal(payload.source.instrumentSymbol, "XAUUSDc");
+      assert.equal(payload.source.instrumentKind, "mt5_broker");
+      assert.equal(payload.source.isSpot, true);
+      assert.equal(payload.source.isMock, false);
+      assert.equal(payload.source.historyCompleteness, "historical_5m");
+      assert.equal(payload.quote.bid, 4040.2);
+      assert.equal(payload.quote.ask, 4040.7);
+      assert.equal(payload.quote.providerSymbol, "XAUUSDc");
+      assert.equal(payload.candles.length, 24);
+      assert.equal(payload.candles[0].timestamp, "2026-06-30T00:00:00.000Z");
+      assert.equal(payload.candles.at(-1).timestamp, "2026-06-30T01:55:00.000Z");
+      assert.notEqual(payload.candles.at(-1).timestamp, "2026-06-30T02:00:00.000Z");
+      assert.ok(payload.chartObjects.length >= 2);
+      for (const object of payload.chartObjects) {
+        assert.match(object.reason, /MT5|结构|范围|趋势/);
+        if (object.kind === "trendline") {
+          assert.ok(object.anchors[0].time_index >= 0);
+          assert.ok(object.anchors[1].time_index < payload.candles.length);
+          assert.ok(object.anchors[1].time_index - object.anchors[0].time_index <= 72);
+        }
+        if (object.kind === "range_box") {
+          assert.ok(object.start_index >= 0);
+          assert.ok(object.end_index < payload.candles.length);
+          assert.ok(object.end_index >= object.start_index);
+        }
+      }
+    } finally {
+      delete process.env.PAQUANT_MT5_BRIDGE_URL;
+      delete process.env.PAQUANT_MT5_SYMBOL;
+      delete process.env.PAQUANT_MT5_BARS;
+    }
+  });
+
   test("tries another real Yahoo chart endpoint when the first endpoint is rate limited", async () => {
     const requests = [];
     const payload = await loadLiveMarket(async (url, options = {}) => {
@@ -469,6 +548,13 @@ describe("paquant CloudBase HTTP API", () => {
     assert.match(payload.orders[0].execution_plan.entry_tactic, /stop order|停止单|突破|跌破/i);
     assert.match(payload.orders[0].reason, /DeepSeek 模型 API 已返回工具调用/);
     assert.match(payload.chartObjects.find((object) => object.id === "entry-marker").reason, /入场标记/);
+    assert.ok(payload.analysis.thinkingSteps.length >= 5);
+    assert.deepEqual(
+      payload.analysis.thinkingSteps.map((step) => step.phase),
+      ["observe", "retrieve", "measure", "hypothesis", "risk", "decision"]
+    );
+    assert.ok(payload.analysis.decisionTrace.length >= 4);
+    assert.match(payload.analysis.decisionTrace.at(-1).answer, /stop|下单|不下单|订单/i);
   });
 
   test("agent run does not expose English model summary to the Chinese UI", async () => {
@@ -519,6 +605,44 @@ function modelResponse(toolCalls, content = "模型推理摘要。") {
   return {
     choices: [{ message: { content, tool_calls: toolCalls } }],
     usage: { prompt_tokens: 100, completion_tokens: 20 }
+  };
+}
+
+function mt5BridgePayload() {
+  const closedBars = Array.from({ length: 24 }, (_, index) => {
+    const open = 4010 + index * 1.2;
+    const close = open + (index % 3 === 0 ? 0.9 : -0.35);
+    const high = Math.max(open, close) + 1.1;
+    const low = Math.min(open, close) - 1.2;
+    return {
+      time: Date.UTC(2026, 5, 30, 0, index * 5) / 1000,
+      open,
+      high,
+      low,
+      close,
+      tick_volume: 90 + index,
+      closed: true
+    };
+  });
+  const forming = {
+    time: Date.UTC(2026, 5, 30, 2, 0) / 1000,
+    open: 4039.8,
+    high: 4041.1,
+    low: 4039.2,
+    close: 4040.45,
+    tick_volume: 118,
+    closed: false
+  };
+  return {
+    source: "mt5",
+    symbol: "XAUUSDc",
+    timeframe: "5m",
+    barsNewestFirst: [forming, ...[...closedBars].reverse()],
+    tick: {
+      bid: 4040.2,
+      ask: 4040.7,
+      time_msc: Date.UTC(2026, 5, 30, 2, 0, 12)
+    }
   };
 }
 

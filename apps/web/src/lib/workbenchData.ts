@@ -300,7 +300,7 @@ function workbenchFromLiveMarket(payload: LiveMarketPayload): WorkbenchFixture {
     candles: payload.candles,
     higherTimeframeContext: [],
     agentActions: [],
-    chartObjects: [],
+    chartObjects: payload.chartObjects ?? [],
     orders: [],
     trades: [],
     tradeSnapshots: [],

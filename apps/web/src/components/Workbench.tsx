@@ -628,7 +628,7 @@ function idleWorkbenchFixture(fixture: WorkbenchFixture): WorkbenchFixture {
   return {
     ...fixture,
     agentActions: [],
-    chartObjects: [],
+    chartObjects: fixture.chartObjects.filter((object) => object.kind !== "trade_marker"),
     orders: [],
     trades: [],
     tradeSnapshots: [],
@@ -642,6 +642,7 @@ function keepCurrentMarketContext(run: WorkbenchFixture, current: WorkbenchFixtu
   return {
     ...run,
     candles: current.candles,
+    chartObjects: mergeContextChartObjects(current.chartObjects, run.chartObjects),
     meta: {
       ...run.meta,
       source: run.meta?.source ?? current.meta?.source ?? "api",
@@ -652,6 +653,17 @@ function keepCurrentMarketContext(run: WorkbenchFixture, current: WorkbenchFixtu
       quote: current.meta?.quote ?? run.meta?.quote
     }
   };
+}
+
+function mergeContextChartObjects(
+  currentObjects: WorkbenchFixture["chartObjects"],
+  runObjects: WorkbenchFixture["chartObjects"]
+) {
+  const runIds = new Set(runObjects.map((object) => object.id));
+  const contextObjects = currentObjects.filter(
+    (object) => isLiveStructureObject(object) && !runIds.has(object.id)
+  );
+  return [...contextObjects, ...runObjects];
 }
 
 function stagedWorkbenchFixture(
@@ -688,6 +700,11 @@ function collectVisibleChartObjectIds(
       .map((action) => action.chartObjectId)
       .filter((id): id is string => Boolean(id))
   );
+  for (const object of objects) {
+    if (isLiveStructureObject(object)) {
+      ids.add(object.id);
+    }
+  }
   if (isOrderVisible) {
     for (const object of objects) {
       if (object.kind === "trade_marker") {
@@ -696,6 +713,10 @@ function collectVisibleChartObjectIds(
     }
   }
   return ids;
+}
+
+function isLiveStructureObject(object: ChartObject) {
+  return object.id.includes("structure-") && object.kind !== "trade_marker";
 }
 
 function chartFocusWindowForRun(run: WorkbenchFixture, totalCandleCount: number) {

@@ -57,6 +57,12 @@ export function TraderPanel({
   const orderPlan = analysis.noTradeReason
     ? "本轮不下单"
     : `${translateText(analysis.entryType)} / 止损 ${formatPrice(analysis.stop)} / 止盈 ${formatPrice(analysis.target)} / 仓位 ${analysis.positionSizeSuggestion}`;
+  const thinkingSteps = analysis.thinkingSteps?.length
+    ? analysis.thinkingSteps
+    : fallbackThinkingSteps(analysis, modelUsage.provider, modelUsage.model);
+  const decisionTrace = analysis.decisionTrace?.length
+    ? analysis.decisionTrace
+    : fallbackDecisionTrace(analysis, orderPlan);
 
   return (
     <section className="trader-panel" aria-label="AI 交易员分析">
@@ -96,6 +102,37 @@ export function TraderPanel({
           <span>估算成本</span>
           <strong>${modelUsage.estimated_cost_usd.toFixed(6)}</strong>
         </div>
+      </section>
+
+      <section className="decision-trace-panel" aria-label="交易员思考和决策">
+        <div className="decision-trace-header">
+          <h2>
+            <ListChecks size={14} />
+            决策轨迹
+          </h2>
+          <span>可审计摘要</span>
+        </div>
+        <ol className="thinking-path-list" aria-label="思考路径">
+          {thinkingSteps.map((step, index) => (
+            <li key={`${step.phase}-${index}`}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{translateText(step.title)}</strong>
+                <p>{translateText(step.summary)}</p>
+                {step.evidence.length ? <small>{step.evidence.map(translateText).join(" / ")}</small> : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+        <ol className="decision-trace-list" aria-label="决策检查">
+          {decisionTrace.map((item, index) => (
+            <li key={`${item.question}-${index}`} className={item.outcome}>
+              <strong>{translateText(item.question)}</strong>
+              <p>{translateText(item.answer)}</p>
+              <small>{translateText(item.evidence)}</small>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section className="structured-thinking-panel" aria-label="结构化思考">
@@ -224,6 +261,64 @@ function ThinkingBlock({
       {meta ? <small>{meta}</small> : null}
     </article>
   );
+}
+
+function fallbackThinkingSteps(analysis: Analysis, provider: string, model: string) {
+  return [
+    {
+      phase: "observe",
+      title: "读取行情",
+      summary: translateText(analysis.marketContext),
+      evidence: [`模型 API：${provider} / ${model}`]
+    },
+    {
+      phase: "measure",
+      title: "结构测量",
+      summary: `${translateText(analysis.trendStrength)}；${translateText(analysis.tradingRangeState)}`,
+      evidence: analysis.keyLevels.map((level) => `${translateText(level.label)} ${level.price.toFixed(2)}`)
+    },
+    {
+      phase: "hypothesis",
+      title: "交易假设",
+      summary: translateText(analysis.setupCandidate),
+      evidence: [translateText(analysis.entryType)]
+    },
+    {
+      phase: "risk",
+      title: "失效检查",
+      summary: translateText(analysis.invalidation),
+      evidence: [`止损 ${formatPrice(analysis.stop)}`, `止盈 ${formatPrice(analysis.target)}`]
+    },
+    {
+      phase: "decision",
+      title: "输出决策",
+      summary: analysis.noTradeReason ? translateText(analysis.noTradeReason) : translateText(analysis.reasoningSummary),
+      evidence: [`仓位 ${analysis.positionSizeSuggestion}`]
+    }
+  ];
+}
+
+function fallbackDecisionTrace(analysis: Analysis, orderPlan: string) {
+  return [
+    {
+      question: "当前方向是否清楚？",
+      answer: formatBias(analysis.alwaysInBias),
+      outcome: "pass",
+      evidence: translateText(analysis.marketContext)
+    },
+    {
+      question: "是否有具体订单？",
+      answer: orderPlan,
+      outcome: analysis.noTradeReason ? "warn" : "pass",
+      evidence: translateText(analysis.entryType)
+    },
+    {
+      question: "风险回报是否可审计？",
+      answer: `止损 ${formatPrice(analysis.stop)} / 止盈 ${formatPrice(analysis.target)} / 仓位 ${analysis.positionSizeSuggestion}`,
+      outcome: "pass",
+      evidence: translateText(analysis.invalidation)
+    }
+  ];
 }
 
 function formatKeyLevels(levels: KeyLevel[]) {
