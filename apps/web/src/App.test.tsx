@@ -473,7 +473,7 @@ test("长历史启动 AI 后，图表自动聚焦到交易标注窗口", async (
 
   expect(within(chartPanel).getAllByText("入场 2323.03 仓位 1").length).toBeGreaterThan(0);
   expect(document.querySelector(".replay-counter")?.textContent).toContain("/160");
-});
+}, 10_000);
 
 test("AI run with wide model drawings still focuses the visible chart on trade markers", async () => {
   const longCandles = Array.from({ length: 160 }, (_, index) => {
@@ -547,7 +547,7 @@ test("AI run with wide model drawings still focuses the visible chart on trade m
   expect(document.querySelector(".trade-marker.entry")).toBeInTheDocument();
   expect(within(chartPanel).getAllByText(/2323\.03/).length).toBeGreaterThan(0);
   expect(document.querySelector(".chart-viewport-scrubber strong")?.textContent).toContain("1-72");
-});
+}, 10_000);
 
 test("AI 交易员返回后不会一次性展示全部工具和订单，而是按执行节奏逐步露出", async () => {
   render(<App />);

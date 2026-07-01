@@ -19,6 +19,7 @@ class TrendLine(BaseModel):
     id: str
     label: str
     anchors: list[AnchorPoint] = Field(min_length=2, max_length=2)
+    reason: str | None = None
 
 
 class Channel(BaseModel):
@@ -29,6 +30,7 @@ class Channel(BaseModel):
     label: str
     base: TrendLine
     parallel_anchor: AnchorPoint
+    reason: str | None = None
 
 
 class RangeBox(BaseModel):
@@ -41,6 +43,7 @@ class RangeBox(BaseModel):
     end_index: int
     high: float
     low: float
+    reason: str | None = None
 
 
 class Fibonacci(BaseModel):
@@ -52,6 +55,7 @@ class Fibonacci(BaseModel):
     start: AnchorPoint
     end: AnchorPoint
     levels: dict[str, float]
+    reason: str | None = None
 
 
 class MeasuredMove(BaseModel):
@@ -64,6 +68,7 @@ class MeasuredMove(BaseModel):
     end: AnchorPoint
     projected_from: AnchorPoint
     target_price: float
+    reason: str | None = None
 
 
 class ThreePush(BaseModel):
@@ -73,6 +78,7 @@ class ThreePush(BaseModel):
     id: str
     label: str
     pushes: list[AnchorPoint] = Field(min_length=3)
+    reason: str | None = None
 
 
 class TradeMarker(BaseModel):
@@ -82,6 +88,8 @@ class TradeMarker(BaseModel):
     id: str
     label: str
     time_index: int
+    start_index: int | None = None
+    end_index: int | None = None
     price: float
     marker_type: Literal["entry", "stop", "target", "fill"]
     quantity: float | None = None

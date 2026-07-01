@@ -39,8 +39,12 @@ export function OrdersPanel({ orders, trades }: OrdersPanelProps) {
             </div>
             {order.execution_plan ? (
               <div className="order-execution-plan">
+                <span className="order-plan-chip">订单 {order.execution_plan.order_type_label}</span>
                 <span className="order-plan-chip">
                   信号K线 {order.execution_plan.signal_bar_index + 1}
+                </span>
+                <span className="order-plan-chip">
+                  触发价 {order.execution_plan.trigger_price.toFixed(2)}
                 </span>
                 <span>{formatSignalTime(order.execution_plan.signal_bar_time)}</span>
                 <span>{order.execution_plan.signal_bar_pattern}</span>

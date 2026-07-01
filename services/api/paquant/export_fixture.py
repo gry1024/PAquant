@@ -356,6 +356,7 @@ def build_demo_fixture(
         f"{abs(proposed_order.target - proposed_order.entry):.2f} 点目标回报。"
     )
     signal_bar_index = proposed_order.execution_plan.signal_bar_index
+    marker_end_index = min(len(source_candles) - 1, signal_bar_index + 5)
     chart_objects = [
         *decision.chart_objects,
         MeasuredMove(
@@ -370,6 +371,9 @@ def build_demo_fixture(
             target_price=round(
                 proposed_order.target + abs(proposed_order.target - proposed_order.entry) / 2,
                 2,
+            ),
+            reason=(
+                "等距测量从入场腿投射到目标区域，范围只覆盖本次信号后的观察窗口。"
             ),
         ),
         ThreePush(
@@ -389,29 +393,42 @@ def build_demo_fixture(
                     price=source_candles[min(29, len(source_candles) - 1)].high,
                 ),
             ],
+            reason="三推示例只连接三次实际推动锚点，用来观察通道末端动能是否衰竭。",
         ),
         TradeMarker(
             id="entry-marker",
             label=f"入场 {proposed_order.entry:.2f} | 仓位 {proposed_order.quantity:g}",
             time_index=signal_bar_index,
+            start_index=signal_bar_index,
+            end_index=marker_end_index,
             price=proposed_order.entry,
             marker_type="entry",
             quantity=proposed_order.quantity,
-            reason=f"入场标记：{trade_reason}",
+            reason=(
+                f"订单类型 {proposed_order.order_type}；{trade_reason}"
+                f" 信号K线为第 {signal_bar_index + 1} 根，触发价 {proposed_order.entry:.2f}。"
+            ),
         ),
         TradeMarker(
             id="stop-marker",
             label=f"止损 {proposed_order.stop:.2f} | 仓位 {proposed_order.quantity:g}",
             time_index=signal_bar_index,
+            start_index=signal_bar_index,
+            end_index=marker_end_index,
             price=proposed_order.stop,
             marker_type="stop",
             quantity=proposed_order.quantity,
-            reason="止损位于信号 K 线另一侧，代表本笔 stop order 的失效价。",
+            reason=(
+                f"止损 {proposed_order.stop:.2f} 位于信号 K 线另一侧，"
+                "代表本笔 stop order 的失效价。"
+            ),
         ),
         TradeMarker(
             id="target-marker",
             label=f"止盈 {proposed_order.target:.2f} | 仓位 {proposed_order.quantity:g}",
-            time_index=min(len(source_candles) - 1, signal_bar_index + 5),
+            time_index=marker_end_index,
+            start_index=signal_bar_index,
+            end_index=marker_end_index,
             price=proposed_order.target,
             marker_type="target",
             quantity=proposed_order.quantity,

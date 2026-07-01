@@ -304,7 +304,10 @@ def _build_analysis_prompt(
         "drawing tool such as draw_trendline, draw_channel, draw_box, or "
         "draw_fibonacci, and at least one measurement tool such as measure_leg, "
         "compare_legs, count_bars, project_line, or measure_deviation before "
-        "finalizing the trade thesis. Do not expose hidden chain-of-thought; "
+        "finalizing the trade thesis. Every drawing must use a finite K-line "
+        "range, must include a short reason field, and must not span the whole "
+        "chart unless that whole range is the named setup being analyzed. "
+        "Do not expose hidden chain-of-thought; "
         "return only a concise Simplified Chinese reasoning summary after the tool calls.\n\n"
         f"Session facts: first_open={first_open:.2f}, last_close={last_close:.2f}, "
         f"high={high:.2f}, low={low:.2f}, bars={len(candles)}.\n"
@@ -319,17 +322,19 @@ def _build_forced_tool_request(
     candles: list[Candle],
     knowledge_refs: list[KnowledgeReference],
 ) -> ModelRequest:
-    first = candles[0]
     last = candles[-1]
+    start_index = max(0, len(candles) - 72)
+    first = candles[start_index]
     mid_index = max(1, len(candles) // 2)
     mid = candles[mid_index]
     if tool_name == "draw_trendline":
         prompt = (
             "Your previous response did not create a chart drawing. Call "
             "draw_trendline now using exactly this structure: id "
-            "'model-live-trendline', label 'Model live trend line', start "
-            f"{{'time_index': 0, 'price': {first.low:.2f}}}, end "
-            f"{{'time_index': {len(candles) - 1}, 'price': {last.close:.2f}}}. "
+            "'model-live-trendline', label '最近结构趋势线', start "
+            f"{{'time_index': {start_index}, 'price': {first.low:.2f}}}, end "
+            f"{{'time_index': {len(candles) - 1}, 'price': {last.close:.2f}}}, "
+            "reason '只覆盖最近结构窗口，用来观察当前始终在场方向'。"
             "Do not return hidden chain-of-thought."
         )
     elif tool_name == "measure_leg":
@@ -670,6 +675,7 @@ def build_brooks_generalist_drawing_commands() -> list[ToolCommand]:
                 "label": "Always-in long trend line",
                 "start": {"time_index": 0, "price": 2306.5},
                 "end": {"time_index": 40, "price": 2329.0},
+                "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。",
             },
         ),
         ToolCommand(
@@ -679,6 +685,7 @@ def build_brooks_generalist_drawing_commands() -> list[ToolCommand]:
                 "label": "Parallel channel projection",
                 "base_id": "tl-primary",
                 "parallel_anchor": {"time_index": 17, "price": 2322.4},
+                "reason": "以趋势线为基准投射通道，用来判断回调是否仍在多头通道内。",
             },
         ),
         ToolCommand(
@@ -690,6 +697,7 @@ def build_brooks_generalist_drawing_commands() -> list[ToolCommand]:
                 "end_index": 12,
                 "high": 2316.0,
                 "low": 2306.5,
+                "reason": "框出早期回调的时间和价格范围，避免把后续行情误算进同一箱体。",
             },
         ),
         ToolCommand(
@@ -699,6 +707,7 @@ def build_brooks_generalist_drawing_commands() -> list[ToolCommand]:
                 "label": "Swing retracement map",
                 "start": {"time_index": 0, "price": 2306.5},
                 "end": {"time_index": 24, "price": 2325.2},
+                "reason": "只测量第 0 到第 24 根的摆动腿回撤，不向全图无限延伸。",
             },
         ),
         ToolCommand(

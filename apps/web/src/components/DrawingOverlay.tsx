@@ -184,13 +184,31 @@ export function DrawingOverlay({ candles, objects, indexOffset = 0 }: DrawingOve
         }
 
         if (object.kind === "trade_marker") {
-          if (!isIndexInWindow(object.time_index, candles, indexOffset)) {
+          const scoped = clipIndexRange(
+            object.start_index ?? object.time_index,
+            object.end_index ?? object.time_index + 8,
+            indexOffset,
+            candles.length
+          );
+          if (!scoped) {
             return null;
           }
+          const localIndex = clamp(object.time_index - indexOffset, 0, candles.length - 1);
           const point = projectToOverlay(
-            { time_index: object.time_index - indexOffset, price: object.price },
+            { time_index: localIndex, price: object.price },
             candles
           );
+          const lineStart = projectToOverlay(
+            { time_index: scoped.start - indexOffset, price: object.price },
+            candles
+          );
+          const lineEnd = projectToOverlay(
+            { time_index: scoped.end - indexOffset, price: object.price },
+            candles
+          );
+          const [lineX1, lineX2] =
+            lineStart.x <= lineEnd.x ? [lineStart.x, lineEnd.x] : [lineEnd.x, lineStart.x];
+          const dotVisible = isIndexInWindow(object.time_index, candles, indexOffset);
           const yOffset = object.marker_type === "stop" ? 4.2 : -2.4;
           const labelPosition = markerLabelPosition(point.x);
           const label = formatTradeMarkerLabel(object);
@@ -209,9 +227,11 @@ export function DrawingOverlay({ candles, objects, indexOffset = 0 }: DrawingOve
               <title>{translateText(object.reason ?? object.label)}</title>
               <line
                 className={`trade-price-line ${object.marker_type}`}
-                x1={2}
+                data-start-candle-index={scoped.start}
+                data-end-candle-index={scoped.end}
+                x1={lineX1}
                 y1={markerY}
-                x2={97}
+                x2={lineX2}
                 y2={markerY}
               />
               <text
@@ -229,12 +249,14 @@ export function DrawingOverlay({ candles, objects, indexOffset = 0 }: DrawingOve
                 x2={frame.leaderX}
                 y2={frame.labelY - 1.1}
               />
-              <circle
-                className={`trade-dot ${object.marker_type}`}
-                cx={point.x}
-                cy={markerY}
-                r={1.15}
-              />
+              {dotVisible ? (
+                <circle
+                  className={`trade-dot ${object.marker_type}`}
+                  cx={point.x}
+                  cy={markerY}
+                  r={1.15}
+                />
+              ) : null}
               <rect
                 className={`trade-marker-label-bg ${object.marker_type}`}
                 x={frame.x}
@@ -316,6 +338,21 @@ function formatAnchor(anchor: { time_index: number; price: number }) {
 
 function isIndexInWindow(timeIndex: number, candles: Candle[], indexOffset: number) {
   return timeIndex >= indexOffset && timeIndex < indexOffset + candles.length;
+}
+
+function clipIndexRange(
+  startIndex: number,
+  endIndex: number,
+  indexOffset: number,
+  visibleCount: number
+): { start: number; end: number } | null {
+  const rawStart = Math.min(startIndex, endIndex);
+  const rawEnd = Math.max(startIndex, endIndex);
+  const windowStart = indexOffset;
+  const windowEnd = indexOffset + visibleCount - 1;
+  const start = Math.max(rawStart, windowStart);
+  const end = Math.min(rawEnd, windowEnd);
+  return start <= end ? { start, end } : null;
 }
 
 function overlayLineClassName(kind: string, points: OverlayPoint[]) {

@@ -39,7 +39,9 @@ test("orders panel shows concrete stop-order execution plan instead of only pric
   expect(scope.getByText("Stop 单")).toBeInTheDocument();
   expect(scope.getByText("2323.03")).toBeInTheDocument();
   expect(scope.getByText("仓位")).toBeInTheDocument();
+  expect(scope.getByText("订单 buy stop")).toBeInTheDocument();
   expect(scope.getByText("信号K线 18")).toBeInTheDocument();
+  expect(scope.getByText("触发价 2323.03")).toBeInTheDocument();
   expect(scope.getByText(/2026-06-30 01:25/)).toBeInTheDocument();
   expect(scope.getAllByText(/突破信号K线高点 2322\.93/).length).toBeGreaterThan(1);
   expect(scope.getByText(/触发前不成交/)).toBeInTheDocument();

@@ -32,6 +32,7 @@ export interface TrendLineObject {
   id: string;
   label: string;
   anchors: [AnchorPoint, AnchorPoint];
+  reason?: string | null;
 }
 
 export type ChartObject =
@@ -42,6 +43,7 @@ export type ChartObject =
       label: string;
       base: TrendLineObject;
       parallel_anchor: AnchorPoint;
+      reason?: string | null;
     }
   | {
       kind: "range_box";
@@ -51,6 +53,7 @@ export type ChartObject =
       end_index: number;
       high: number;
       low: number;
+      reason?: string | null;
     }
   | {
       kind: "fibonacci";
@@ -59,6 +62,7 @@ export type ChartObject =
       start: AnchorPoint;
       end: AnchorPoint;
       levels: Record<string, number>;
+      reason?: string | null;
     }
   | {
       kind: "measured_move";
@@ -68,18 +72,22 @@ export type ChartObject =
       end: AnchorPoint;
       projected_from: AnchorPoint;
       target_price: number;
+      reason?: string | null;
     }
   | {
       kind: "three_push";
       id: string;
       label: string;
       pushes: AnchorPoint[];
+      reason?: string | null;
     }
   | {
       kind: "trade_marker";
       id: string;
       label: string;
       time_index: number;
+      start_index?: number | null;
+      end_index?: number | null;
       price: number;
       marker_type: "entry" | "stop" | "target" | "fill";
       quantity?: number | null;
@@ -330,7 +338,7 @@ export interface TraderProfile {
 export interface KnowledgeSource {
   id: string;
   title: string;
-  sourceType: "local_pdf";
+  sourceType: "local_pdf" | "official_web";
   themes: string[];
   chapterRefs: string[];
 }

@@ -14,7 +14,7 @@ class KnowledgeSource(BaseModel):
 
     id: str
     title: str
-    source_type: Literal["local_pdf"]
+    source_type: Literal["local_pdf", "official_web"]
     themes: list[str]
     chapter_refs: list[str]
 
@@ -172,6 +172,20 @@ def compile_core_knowledge() -> KnowledgeArtifact:
                 "楔形和三推",
                 "失败反转、最终旗形与陷阱",
             ],
+        ),
+        KnowledgeSource(
+            id="brooks-official-glossary",
+            title="Brooks Trading Course - Price Action Trading Terms Glossary",
+            source_type="official_web",
+            themes=["术语校对", "Signal Bar", "Entry Bar", "Wedge", "Final Flag"],
+            chapter_refs=["official glossary checked 2026-07-01"],
+        ),
+        KnowledgeSource(
+            id="brooks-official-abbreviations",
+            title="Brooks Trading Course - Abbreviations",
+            source_type="official_web",
+            themes=["术语缩写", "TR", "FBO", "MM", "H2/L2"],
+            chapter_refs=["official abbreviations checked 2026-07-01"],
         ),
     ]
     chapter_map = [

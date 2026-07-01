@@ -255,6 +255,12 @@ describe("paquant CloudBase HTTP API", () => {
         .map((object) => object.marker_type),
       ["entry", "stop", "target"]
     );
+    for (const marker of payload.chartObjects.filter((object) => object.kind === "trade_marker")) {
+      assert.equal(marker.start_index, payload.orders[0].execution_plan.signal_bar_index);
+      assert.equal(typeof marker.end_index, "number");
+      assert.ok(marker.end_index >= marker.start_index);
+      assert.match(marker.reason, /订单类型|止损|止盈/);
+    }
     assert.equal(payload.orders[0].quantity, 1);
     assert.equal(payload.orders[0].order_type, "stop");
     assert.equal(payload.orders[0].activation_price, payload.orders[0].entry);
@@ -294,6 +300,107 @@ describe("paquant CloudBase HTTP API", () => {
 
     assert.equal(response.statusCode, 400);
     assert.match(response.body, /non-mock 5m candles/);
+  });
+
+  test("agent run returns a timeout instead of hanging on a stalled model provider", async () => {
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    process.env.PAQUANT_MODEL_TIMEOUT_MS = "5";
+    try {
+      const response = await handleRequest({
+        method: "POST",
+        url: "/api/agent-runs",
+        body: JSON.stringify({
+          traderId: "brooks-generalist",
+          modelProvider: "deepseek",
+          market: {
+            source: {
+              id: "forexsb_dukascopy_xauusd_m5_browser",
+              label: "ForexSB Dukascopy XAUUSD M5 history",
+              instrumentSymbol: "XAUUSD",
+              instrumentKind: "spot_history",
+              isSpot: true,
+              isMock: false,
+              historyCompleteness: "historical_5m",
+              latency: "periodic_historical"
+            },
+            candles: clientCandles(24)
+          }
+        }),
+        fetchImpl: async (url, options = {}) => {
+          assert.match(String(url), /deepseek/);
+          assert.ok(options.signal);
+          return new Promise(() => {});
+        }
+      });
+
+      assert.equal(response.statusCode, 504);
+      assert.match(response.body, /timed out/);
+    } finally {
+      delete process.env.PAQUANT_MODEL_TIMEOUT_MS;
+    }
+  });
+
+  test("agent run bounds over-wide model drawings before returning chart objects", async () => {
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    const response = await handleRequest({
+      method: "POST",
+      url: "/api/agent-runs",
+      body: JSON.stringify({
+        traderId: "brooks-generalist",
+        modelProvider: "deepseek",
+        market: {
+          source: {
+            id: "forexsb_dukascopy_xauusd_m5_browser",
+            label: "ForexSB Dukascopy XAUUSD M5 history",
+            instrumentSymbol: "XAUUSD",
+            instrumentKind: "spot_history",
+            isSpot: true,
+            isMock: false,
+            historyCompleteness: "historical_5m",
+            latency: "periodic_historical"
+          },
+          quote: {
+            symbol: "XAUUSD",
+            price: 4032.25,
+            timestamp: "2026-06-30T04:15:00Z",
+            providerSymbol: "XAU"
+          },
+          candles: clientCandles(120)
+        }
+      }),
+      fetchImpl: async () =>
+        okJson(modelResponse([
+          {
+            id: "draw-wide",
+            function: {
+              name: "draw_trendline",
+              arguments: JSON.stringify({
+                id: "wide-model-line",
+                label: "Wide model line",
+                start: { time_index: 0, price: 3950 },
+                end: { time_index: 119, price: 4033 }
+              })
+            }
+          },
+          {
+            id: "measure",
+            function: {
+              name: "measure_leg",
+              arguments: JSON.stringify({
+                start: { time_index: 108, price: 4020 },
+                end: { time_index: 119, price: 4033 }
+              })
+            }
+          }
+        ]))
+    });
+
+    assert.equal(response.statusCode, 201);
+    const payload = JSON.parse(response.body);
+    const line = payload.chartObjects.find((object) => object.id === "wide-model-line");
+    assert.equal(line.kind, "trendline");
+    assert.equal(line.anchors[1].time_index - line.anchors[0].time_index, 72);
+    assert.equal(line.anchors[0].time_index, 47);
   });
 
   test("agent run uses real provider tool calls and returns trade markers", async () => {
@@ -351,6 +458,11 @@ describe("paquant CloudBase HTTP API", () => {
       .filter((object) => object.kind === "trade_marker")
       .map((object) => object.marker_type);
     assert.deepEqual(markerTypes, ["entry", "stop", "target"]);
+    for (const marker of payload.chartObjects.filter((object) => object.kind === "trade_marker")) {
+      assert.equal(marker.start_index, payload.orders[0].execution_plan.signal_bar_index);
+      assert.equal(typeof marker.end_index, "number");
+      assert.ok(marker.end_index >= marker.start_index);
+    }
     assert.equal(payload.orders[0].quantity, 1);
     assert.equal(payload.orders[0].order_type, "stop");
     assert.equal(payload.orders[0].activation_price, payload.orders[0].entry);

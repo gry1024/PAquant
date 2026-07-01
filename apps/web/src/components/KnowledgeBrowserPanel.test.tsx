@@ -18,9 +18,12 @@ test("knowledge case cards render a structured visual pattern diagram", () => {
   expect(screen.getByText("Signal Bar")).toBeInTheDocument();
   expect(screen.getAllByText("交易区间").length).toBeGreaterThan(0);
   expect(screen.getAllByText(/上下文先于形态/).length).toBeGreaterThan(1);
-  expect(screen.getByLabelText("形态图解")).toBeInTheDocument();
+  const diagrams = screen.getAllByLabelText("形态图解");
+  expect(diagrams.length).toBeGreaterThanOrEqual(2);
   expect(screen.getByText("推动1")).toBeInTheDocument();
   expect(screen.getByText("推动2")).toBeInTheDocument();
   expect(screen.getByText("推动3")).toBeInTheDocument();
-  expect(within(screen.getByLabelText("形态图解")).getByText(/通道过冲/)).toBeInTheDocument();
+  expect(within(diagrams[0]).getByText(/通道过冲/)).toBeInTheDocument();
+  expect(screen.getByText("二次入场 High 2 / Low 2")).toBeInTheDocument();
+  expect(screen.getByText("楔形质量复核")).toBeInTheDocument();
 });

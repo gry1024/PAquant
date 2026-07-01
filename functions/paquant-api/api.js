@@ -69,6 +69,8 @@ const MEASUREMENT_TOOLS = new Set([
   "project_line",
   "measure_deviation"
 ]);
+const MAX_MODEL_DRAWING_BARS = 72;
+const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 45000;
 const YAHOO_GOLD_CHART_ENDPOINTS = [
   {
     id: "yahoo_gc_futures_proxy",
@@ -583,14 +585,37 @@ async function callModel({ config, credential, fetchImpl, prompt, tools, toolCho
     tools,
     tool_choice: toolChoice ?? "auto"
   };
-  const response = await fetchImpl(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${credential}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  const timeoutMs = modelRequestTimeoutMs();
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  let timeoutId;
+  let response;
+  try {
+    const modelFetch = fetchImpl(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${credential}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: controller?.signal
+    });
+    const timeoutPromise = new Promise((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        controller?.abort();
+        reject(httpError(504, `model provider ${config.name} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    response = await Promise.race([modelFetch, timeoutPromise]);
+  } catch (error) {
+    if (controller?.signal.aborted || error?.name === "AbortError") {
+      throw httpError(504, `model provider ${config.name} timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+    }
+  }
   if (!response.ok) {
     throw httpError(502, `model provider ${config.name} returned ${response.status}`);
   }
@@ -604,6 +629,14 @@ async function callModel({ config, credential, fetchImpl, prompt, tools, toolCho
       output_tokens: Number(raw?.usage?.completion_tokens ?? 0)
     }
   };
+}
+
+function modelRequestTimeoutMs() {
+  const configured = Number(process.env.PAQUANT_MODEL_TIMEOUT_MS);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
 }
 
 function parseToolCalls(rawCalls) {
@@ -659,11 +692,16 @@ function executeTool(candles, call, objectIndex) {
     return { output: { swings }, observation: `Found ${swings.length} local swing points.` };
   }
   if (call.name === "draw_trendline") {
+    const [start, end] = boundedAnchorPair(
+      anchor(args.start, 0, candles[0].close),
+      anchor(args.end, candles.length - 1, candles.at(-1).close)
+    );
     const chartObject = {
       kind: "trendline",
       id: String(args.id ?? `model-trendline-${objectIndex.size + 1}`),
       label: String(args.label ?? "Model trend line"),
-      anchors: [anchor(args.start, 0, candles[0].close), anchor(args.end, candles.length - 1, candles.at(-1).close)]
+      anchors: [start, end],
+      reason: String(args.reason ?? "趋势线用于限定当前价格行为观察区间。")
     };
     return {
       output: { chart_object: chartObject },
@@ -703,11 +741,57 @@ function executeTool(candles, call, objectIndex) {
       start_index: Number(args.start_index ?? 0),
       end_index: Number(args.end_index ?? candles.length - 1),
       high: Number(args.high ?? Math.max(...candles.map((candle) => candle.high))),
-      low: Number(args.low ?? Math.min(...candles.map((candle) => candle.low)))
+      low: Number(args.low ?? Math.min(...candles.map((candle) => candle.low))),
+      reason: String(args.reason ?? "箱体用于限定回调或交易区间的时间和价格边界。")
     };
     return { output: { chart_object: chartObject }, observation: `Marked range box ${chartObject.label}.`, chartObject };
   }
+  if (call.name === "draw_fibonacci") {
+    const [start, end] = boundedAnchorPair(
+      anchor(args.start, 0, candles[0].close),
+      anchor(args.end, candles.length - 1, candles.at(-1).close)
+    );
+    const chartObject = {
+      kind: "fibonacci",
+      id: String(args.id ?? `model-fib-${objectIndex.size + 1}`),
+      label: String(args.label ?? "Model swing retracement"),
+      start,
+      end,
+      levels: buildFibonacciLevels(start, end),
+      reason: String(args.reason ?? "斐波那契只用于所选摆动腿的回撤测量。")
+    };
+    return { output: { chart_object: chartObject }, observation: `Mapped Fibonacci levels for ${chartObject.label}.`, chartObject };
+  }
   return { output: { ignored: true }, observation: `Tool ${call.name} recorded but not rendered.` };
+}
+
+function buildFibonacciLevels(start, end) {
+  const distance = end.price - start.price;
+  return {
+    "0.382": round4(end.price - distance * 0.382),
+    "0.500": round4(end.price - distance * 0.5),
+    "0.618": round4(end.price - distance * 0.618)
+  };
+}
+
+function boundedAnchorPair(start, end) {
+  const span = Math.abs(end.time_index - start.time_index);
+  if (span <= MAX_MODEL_DRAWING_BARS) {
+    return [start, end];
+  }
+  if (end.time_index >= start.time_index) {
+    const boundedStartIndex = end.time_index - MAX_MODEL_DRAWING_BARS;
+    return [{ time_index: boundedStartIndex, price: linePriceAt(start, end, boundedStartIndex) }, end];
+  }
+  const boundedEndIndex = end.time_index + MAX_MODEL_DRAWING_BARS;
+  return [start, { time_index: boundedEndIndex, price: linePriceAt(start, end, boundedEndIndex) }];
+}
+
+function linePriceAt(start, end, timeIndex) {
+  if (end.time_index === start.time_index) {
+    return start.price;
+  }
+  return start.price + ((end.price - start.price) / (end.time_index - start.time_index)) * (timeIndex - start.time_index);
 }
 
 function parseYahooCandles(result) {
@@ -757,6 +841,7 @@ function analysisPrompt({ candles, first, last, high, low, refs }) {
   return (
     "你是 PAquant 的布鲁克斯通用交易员。请分析实时 XAUUSD 5分钟期货代理行情。 " +
     "必须先调用至少一个绘图工具和至少一个测量工具，再形成交易假设。 " +
+    "每个绘图对象都必须有有限起止K线范围和 reason 字段，除非整段就是被分析 setup，否则不要横跨整张图。 " +
     "不要暴露隐藏思维链；所有可见输出必须只用简体中文，不能输出英文解释。\n\n" +
     `Session facts: first_open=${first.open}, last_close=${last.close}, high=${high}, low=${low}, bars=${candles.length}.\n` +
     `Recent candles: ${JSON.stringify(recent)}.\n` +
@@ -767,13 +852,17 @@ function analysisPrompt({ candles, first, last, high, low, refs }) {
 function forcedToolPrompt(toolName, candles, refs) {
   const first = candles[0];
   const last = candles.at(-1);
+  const startIndex = Math.max(0, candles.length - MAX_MODEL_DRAWING_BARS);
+  const scopedFirst = candles[startIndex];
   const midIndex = Math.max(1, Math.floor(candles.length / 2));
   const mid = candles[midIndex];
   if (toolName === "draw_trendline") {
     return (
       "上一轮没有生成图表绘图。现在只调用 draw_trendline，使用 id 'model-live-trendline', " +
-      `label '模型实时趋势线', start {'time_index':0,'price':${first.low}}, ` +
-      `end {'time_index':${candles.length - 1},'price':${last.close}}. 可见文本必须是简体中文。Relevant refs: ${refs.map((ref) => ref.key).join(", ")}.`
+      `label '最近结构趋势线', start {'time_index':${startIndex},'price':${scopedFirst.low}}, ` +
+      `end {'time_index':${candles.length - 1},'price':${last.close}}, ` +
+      "reason '只覆盖最近结构窗口，用来观察当前始终在场方向'. 可见文本必须是简体中文。" +
+      `Relevant refs: ${refs.map((ref) => ref.key).join(", ")}.`
     );
   }
   return (
@@ -786,8 +875,13 @@ function forcedToolPrompt(toolName, candles, refs) {
 function brooksToolDefinitions() {
   return [
     toolSchema("find_swings", { left_strength: "integer", right_strength: "integer", limit: "integer" }),
-    toolSchema("draw_trendline", { id: "string", label: "string", start: "anchor", end: "anchor" }, ["id", "label", "start", "end"]),
-    toolSchema("draw_box", { id: "string", label: "string", start_index: "integer", end_index: "integer", high: "number", low: "number" }),
+    toolSchema(
+      "draw_trendline",
+      { id: "string", label: "string", start: "anchor", end: "anchor", reason: "string" },
+      ["id", "label", "start", "end"]
+    ),
+    toolSchema("draw_box", { id: "string", label: "string", start_index: "integer", end_index: "integer", high: "number", low: "number", reason: "string" }),
+    toolSchema("draw_fibonacci", { id: "string", label: "string", start: "anchor", end: "anchor", reason: "string" }, ["id", "label", "start", "end"]),
     toolSchema("measure_leg", { start: "anchor", end: "anchor" }, ["start", "end"]),
     toolSchema("count_bars", { start_index: "integer", end_index: "integer" }),
     toolSchema("project_line", { start: "anchor", end: "anchor", time_index: "integer" }),
@@ -945,17 +1039,21 @@ function containsChinese(text) {
 
 function tradeMarkers(order, candles) {
   const index = order.execution_plan?.signal_bar_index ?? Math.max(0, candles.length - 1);
+  const endIndex = Math.min(candles.length - 1, index + 8);
+  const trigger = order.execution_plan?.trigger_condition;
   return [
     {
       kind: "trade_marker",
       id: "entry-marker",
       label: `入场 ${order.entry.toFixed(2)} | 仓位 ${order.quantity}`,
       time_index: index,
+      start_index: index,
+      end_index: endIndex,
       price: order.entry,
       marker_type: "entry",
       quantity: order.quantity,
-      reason: order.execution_plan?.trigger_condition
-        ? `入场标记：${order.execution_plan.trigger_condition}`
+      reason: trigger
+        ? `订单类型 ${order.order_type}；入场标记：${trigger}；仓位 ${order.quantity}`
         : "入场标记来自模型工具调用后的实时模拟订单。"
     },
     {
@@ -963,20 +1061,24 @@ function tradeMarkers(order, candles) {
       id: "stop-marker",
       label: `止损 ${order.stop.toFixed(2)} | 仓位 ${order.quantity}`,
       time_index: index,
+      start_index: index,
+      end_index: endIndex,
       price: order.stop,
       marker_type: "stop",
       quantity: order.quantity,
-      reason: "止损标记表示本笔实时模拟订单的失效价格。"
+      reason: `止损 ${order.stop.toFixed(2)} 是本笔 ${order.order_type} 模拟订单的失效价格。`
     },
     {
       kind: "trade_marker",
       id: "target-marker",
       label: `止盈 ${order.target.toFixed(2)} | 仓位 ${order.quantity}`,
-      time_index: index,
+      time_index: endIndex,
+      start_index: index,
+      end_index: endIndex,
       price: order.target,
       marker_type: "target",
       quantity: order.quantity,
-      reason: "止盈标记表示从入场价测算出的 2R 回报目标。"
+      reason: `止盈 ${order.target.toFixed(2)} 是从入场价测算出的 2R 回报目标。`
     }
   ];
 }
@@ -989,7 +1091,8 @@ function measuredMove(order) {
     start: { time_index: 0, price: order.entry },
     end: { time_index: 8, price: order.target },
     projected_from: { time_index: 12, price: round2((order.entry + order.target) / 2) },
-    target_price: round2(order.target + Math.abs(order.target - order.entry) / 2)
+    target_price: round2(order.target + Math.abs(order.target - order.entry) / 2),
+    reason: "等距测量从入场腿投射目标区域，范围只覆盖本次信号后的观察窗口。"
   };
 }
 
@@ -999,7 +1102,8 @@ function threePush(candles) {
     kind: "three_push",
     id: "three-push",
     label: "Three pushes probe on live feed",
-    pushes: indexes.map((index) => ({ time_index: index, price: candles[index].high }))
+    pushes: indexes.map((index) => ({ time_index: index, price: candles[index].high })),
+    reason: "三推只连接三次实际推动锚点，用来观察通道末端动能是否衰竭。"
   };
 }
 

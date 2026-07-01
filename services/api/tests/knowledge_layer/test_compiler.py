@@ -13,7 +13,9 @@ def test_core_knowledge_contains_brooks_taste():
         "three_push",
         "traders_equation",
     } <= keys
-    assert all(source.title and source.source_type == "local_pdf" for source in artifact.sources)
+    source_types = {source.source_type for source in artifact.sources}
+    assert {"local_pdf", "official_web"} <= source_types
+    assert all(source.title for source in artifact.sources)
     assert all(source.chapter_refs for source in artifact.sources)
     assert all("raw_text" not in concept.model_fields_set for concept in artifact.concepts)
     three_push = next(concept for concept in artifact.concepts if concept.key == "three_push")
@@ -92,3 +94,5 @@ def test_glossary_preserves_checked_chinese_terms():
     assert terms["Trading Range"].abbreviation == "TR"
     assert terms["Failed Breakout"].abbreviation == "FBO"
     assert "brooks-official" in " ".join(terms["Signal Bar"].source_refs)
+    assert any(source.id == "brooks-official-glossary" for source in artifact.sources)
+    assert any(source.id == "brooks-official-abbreviations" for source in artifact.sources)

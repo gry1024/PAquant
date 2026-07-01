@@ -129,3 +129,37 @@ def test_line_projection_and_snap_outputs_are_structured():
 
     assert result.actions[0].output == {"time_index": 15, "price": 2330.0}
     assert result.actions[1].output["anchor"]["price"] > 0
+
+
+def test_model_drawings_are_bounded_to_finite_observation_windows():
+    result = execute_drawing_plan(
+        load_sample_candles(),
+        [
+            ToolCommand(
+                tool="draw_trendline",
+                arguments={
+                    "id": "too-wide-line",
+                    "label": "Model line",
+                    "start": _anchor(0, 2300.0),
+                    "end": _anchor(180, 2390.0),
+                },
+            ),
+            ToolCommand(
+                tool="draw_fibonacci",
+                arguments={
+                    "id": "too-wide-fib",
+                    "label": "Model fib",
+                    "start": _anchor(0, 2300.0),
+                    "end": _anchor(180, 2390.0),
+                },
+            ),
+        ],
+    )
+
+    trendline = result.chart_objects[0]
+    fibonacci = result.chart_objects[1]
+    assert trendline.kind == "trendline"
+    assert fibonacci.kind == "fibonacci"
+    assert trendline.anchors[1].time_index - trendline.anchors[0].time_index == 72
+    assert fibonacci.end.time_index - fibonacci.start.time_index == 72
+    assert trendline.anchors[0].price == pytest.approx(2354.0)

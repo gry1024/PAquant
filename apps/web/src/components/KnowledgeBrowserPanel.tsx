@@ -6,122 +6,148 @@ interface KnowledgeBrowserPanelProps {
 }
 
 export function KnowledgeBrowserPanel({ knowledge }: KnowledgeBrowserPanelProps) {
-  const dossier = knowledge.setupDossiers[0];
-  const caseCard = knowledge.caseCards[0];
-  const playbook = knowledge.reasoningPlaybooks[0];
   const conceptNames = new Map(knowledge.concepts.map((concept) => [concept.key, concept.name]));
 
   return (
-    <section className="knowledge-browser" aria-label="Brooks 知识浏览器">
-      <div className="panel-heading">
-        <BookOpen size={16} />
-        阿尔布鲁克斯价格行为学知识库
+    <section className="knowledge-browser book-browser" aria-label="Brooks 知识浏览器">
+      <div className="book-heading">
+        <div>
+          <BookOpen size={17} />
+          <span>阿尔布鲁克斯价格行为学知识库</span>
+        </div>
+        <small>中文结构化教材 / 术语按 Brooks 官方 glossary 与 abbreviations 校对</small>
       </div>
-      <div className="knowledge-layout">
-        <div className="concept-index" aria-label="价格行为概念图谱">
+
+      <div className="book-layout">
+        <aside className="book-toc" aria-label="教材目录与概念图谱">
           <h2>教材目录</h2>
-          {knowledge.chapterMap.map((chapter) => (
-            <article key={`${chapter.sourceId}-${chapter.title}`} className="concept-chip chapter-chip">
-              <strong>{chapter.part} / {chapter.title}</strong>
-              <span>{chapter.summary}</span>
-              <em>{chapter.conceptKeys.map((key) => conceptNames.get(key) ?? key).join(" · ")}</em>
-            </article>
-          ))}
+          <ol>
+            {knowledge.chapterMap.map((chapter, index) => (
+              <li key={`${chapter.sourceId}-${chapter.title}`}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <strong>{chapter.part} / {chapter.title}</strong>
+                  <p>{chapter.summary}</p>
+                  <em>
+                    {chapter.conceptKeys.map((key) => conceptNames.get(key) ?? key).join(" / ")}
+                  </em>
+                </div>
+              </li>
+            ))}
+          </ol>
 
           <h2>知识图谱</h2>
-          {knowledge.concepts.slice(0, 10).map((concept) => (
-            <article key={concept.key} className="concept-chip">
-              <strong>{concept.name}</strong>
-              <span>{concept.summary}</span>
-              <em>{concept.sourceRefs.join(" / ")}</em>
-            </article>
-          ))}
-          <div className="concept-edge-list" aria-label="概念关系">
-            {knowledge.conceptEdges.slice(0, 8).map((edge) => (
+          <div className="concept-map" aria-label="概念关系">
+            {knowledge.conceptEdges.map((edge) => (
               <span key={`${edge.source}-${edge.target}`}>
                 {conceptNames.get(edge.source) ?? edge.source} → {conceptNames.get(edge.target) ?? edge.target}
                 <em>{edge.relation}</em>
               </span>
             ))}
           </div>
-        </div>
 
-        <div className="knowledge-detail">
-          {dossier ? (
-            <section className="dossier-panel">
-              <div className="knowledge-subhead">
-                <Route size={14} />
-                形态档案
-              </div>
-              <h2>{dossier.name}</h2>
-              <p>{dossier.context}</p>
-              <div className="knowledge-columns">
-                <ListBlock title="观察条件" items={dossier.observations} />
-                <ListBlock title="测量依据" items={dossier.measurements} />
-                <ListBlock title="入场方式" items={dossier.entryStyles} />
-                <ListBlock title="止损逻辑" items={dossier.stopLogic} />
-                <ListBlock title="目标" items={dossier.targets} />
-                <ListBlock title="失败模式" items={dossier.failureModes} />
-                <ListBlock title="持仓管理" items={dossier.management} />
-              </div>
-            </section>
-          ) : null}
-
-          <section className="knowledge-card glossary-card" aria-label="术语表">
-            <div className="knowledge-subhead">术语表</div>
-            <div className="glossary-grid">
-              {knowledge.glossary.map((term) => (
-                <article key={term.english}>
-                  <strong>{term.chinese}</strong>
+          <h2>术语表</h2>
+          <dl className="glossary-book" aria-label="术语表">
+            {knowledge.glossary.map((term) => (
+              <div key={term.english}>
+                <dt>
+                  {term.chinese}
                   <code>{term.abbreviation ? `${term.english} / ${term.abbreviation}` : term.english}</code>
-                  <span>{term.definition}</span>
-                </article>
+                </dt>
+                <dd>{term.definition}</dd>
+              </div>
+            ))}
+          </dl>
+        </aside>
+
+        <article className="knowledge-book" aria-label="价格行为教材正文">
+          <section className="book-chapter">
+            <div className="book-chapter-kicker">
+              <Route size={14} />
+              第一部分：核心概念
+            </div>
+            <h2>从上下文到交易员方程</h2>
+            <div className="concept-paragraphs">
+              {knowledge.concepts.map((concept) => (
+                <section key={concept.key}>
+                  <h3>{concept.name}</h3>
+                  <p>{concept.summary}</p>
+                  <ul>
+                    {concept.questions.map((question) => (
+                      <li key={question}>{question}</li>
+                    ))}
+                  </ul>
+                </section>
               ))}
             </div>
           </section>
 
-          <div className="knowledge-grid">
-            {caseCard ? (
-              <section className="knowledge-card">
-                <div className="knowledge-subhead">
-                  <FileText size={14} />
-                  图文案例
+          <section className="book-chapter">
+            <div className="book-chapter-kicker">
+              <FileText size={14} />
+              第二部分：Al Brooks Setup 档案
+            </div>
+            <h2>形态不是标签，先看条件、测量和失效</h2>
+            {knowledge.setupDossiers.map((dossier) => (
+              <section className="setup-book-section" key={dossier.key}>
+                <h3>{dossier.name}</h3>
+                <p>{dossier.context}</p>
+                <div className="setup-book-grid">
+                  <ListBlock title="观察条件" items={dossier.observations} />
+                  <ListBlock title="测量依据" items={dossier.measurements} />
+                  <ListBlock title="入场方式" items={dossier.entryStyles} />
+                  <ListBlock title="止损逻辑" items={dossier.stopLogic} />
+                  <ListBlock title="目标" items={dossier.targets} />
+                  <ListBlock title="失败模式" items={dossier.failureModes} />
                 </div>
-                <h2>{caseCard.title}</h2>
-                <CasePatternDiagram caseCard={caseCard} />
-                <p>{caseCard.patternInterpretation}</p>
-                <strong>{caseCard.expectedFollowThrough}</strong>
-                <span>{caseCard.failureScenario}</span>
               </section>
-            ) : null}
+            ))}
+          </section>
 
-            {playbook ? (
-              <section className="knowledge-card">
-                <div className="knowledge-subhead">
-                  <ShieldQuestion size={14} />
-                  推理手册
-                </div>
-                <h2>{playbook.name}</h2>
-                <ul>
-                  {playbook.questions.slice(0, 4).map((question) => (
-                    <li key={question}>{question}</li>
-                  ))}
-                </ul>
-                <span>{playbook.displayGuardrails[0]}</span>
-              </section>
-            ) : null}
-
-            <section className="knowledge-card source-map">
-              <div className="knowledge-subhead">书籍来源映射</div>
-              {knowledge.sources.map((source) => (
-                <div key={source.id}>
-                  <strong>{source.title}</strong>
-                  <span>{source.chapterRefs.join(" | ")}</span>
-                </div>
+          <section className="book-chapter">
+            <div className="book-chapter-kicker">
+              <ShieldQuestion size={14} />
+              第三部分：Setup 示例图与推理手册
+            </div>
+            <h2>示例图只服务于可审计判断</h2>
+            <div className="case-book-grid">
+              {knowledge.caseCards.map((caseCard) => (
+                <section key={caseCard.key} className="case-book-section">
+                  <h3>{caseCard.title}</h3>
+                  <CasePatternDiagram caseCard={caseCard} />
+                  <p>{caseCard.chartContext}</p>
+                  <p>{caseCard.patternInterpretation}</p>
+                  <strong>{caseCard.expectedFollowThrough}</strong>
+                  <span>{caseCard.failureScenario}</span>
+                </section>
               ))}
-            </section>
-          </div>
-        </div>
+            </div>
+
+            <div className="playbook-book-list">
+              {knowledge.reasoningPlaybooks.map((playbook) => (
+                <section key={playbook.key}>
+                  <h3>{playbook.name}</h3>
+                  <ol>
+                    {playbook.questions.map((question) => (
+                      <li key={question}>{question}</li>
+                    ))}
+                  </ol>
+                  <p>{playbook.displayGuardrails.join(" / ")}</p>
+                </section>
+              ))}
+            </div>
+          </section>
+
+          <section className="source-book-map" aria-label="书籍来源映射">
+            <h2>书籍来源映射</h2>
+            {knowledge.sources.map((source) => (
+              <p key={source.id}>
+                <strong>{source.title}</strong>
+                <span>{source.chapterRefs.join(" / ")}</span>
+              </p>
+            ))}
+          </section>
+        </article>
       </div>
     </section>
   );
@@ -134,14 +160,14 @@ interface ListBlockProps {
 
 function ListBlock({ title, items }: ListBlockProps) {
   return (
-    <div className="knowledge-list-block">
-      <strong>{title}</strong>
+    <section className="setup-book-list">
+      <h4>{title}</h4>
       <ul>
-        {items.slice(0, 3).map((item) => (
+        {items.map((item) => (
           <li key={item}>{item}</li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 

@@ -1044,7 +1044,8 @@
         "end": {
           "time_index": 40,
           "price": 2329.0
-        }
+        },
+        "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
       },
       "output": {
         "chart_object": {
@@ -1060,7 +1061,8 @@
               "time_index": 40,
               "price": 2329.0
             }
-          ]
+          ],
+          "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
         }
       },
       "chartObjectId": "tl-primary"
@@ -1077,7 +1079,8 @@
         "parallel_anchor": {
           "time_index": 17,
           "price": 2322.4
-        }
+        },
+        "reason": "以趋势线为基准投射通道，用来判断回调是否仍在多头通道内。"
       },
       "output": {
         "chart_object": {
@@ -1097,12 +1100,14 @@
                 "time_index": 40,
                 "price": 2329.0
               }
-            ]
+            ],
+            "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
           },
           "parallel_anchor": {
             "time_index": 17,
             "price": 2322.4
-          }
+          },
+          "reason": "以趋势线为基准投射通道，用来判断回调是否仍在多头通道内。"
         }
       },
       "chartObjectId": "channel-primary"
@@ -1118,7 +1123,8 @@
         "start_index": 0,
         "end_index": 12,
         "high": 2316.0,
-        "low": 2306.5
+        "low": 2306.5,
+        "reason": "框出早期回调的时间和价格范围，避免把后续行情误算进同一箱体。"
       },
       "output": {
         "chart_object": {
@@ -1128,7 +1134,8 @@
           "start_index": 0,
           "end_index": 12,
           "high": 2316.0,
-          "low": 2306.5
+          "low": 2306.5,
+          "reason": "框出早期回调的时间和价格范围，避免把后续行情误算进同一箱体。"
         }
       },
       "chartObjectId": "box-pullback"
@@ -1148,7 +1155,8 @@
         "end": {
           "time_index": 24,
           "price": 2325.2
-        }
+        },
+        "reason": "只测量第 0 到第 24 根的摆动腿回撤，不向全图无限延伸。"
       },
       "output": {
         "chart_object": {
@@ -1169,7 +1177,8 @@
             "0.618": 2313.6434,
             "1.000": 2306.5,
             "1.618": 2294.9434
-          }
+          },
+          "reason": "只测量第 0 到第 24 根的摆动腿回撤，不向全图无限延伸。"
         }
       },
       "chartObjectId": "fib-swing"
@@ -1320,7 +1329,8 @@
           "time_index": 40,
           "price": 2329.0
         }
-      ]
+      ],
+      "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
     },
     {
       "kind": "channel",
@@ -1339,12 +1349,14 @@
             "time_index": 40,
             "price": 2329.0
           }
-        ]
+        ],
+        "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
       },
       "parallel_anchor": {
         "time_index": 17,
         "price": 2322.4
-      }
+      },
+      "reason": "以趋势线为基准投射通道，用来判断回调是否仍在多头通道内。"
     },
     {
       "kind": "range_box",
@@ -1353,7 +1365,8 @@
       "start_index": 0,
       "end_index": 12,
       "high": 2316.0,
-      "low": 2306.5
+      "low": 2306.5,
+      "reason": "框出早期回调的时间和价格范围，避免把后续行情误算进同一箱体。"
     },
     {
       "kind": "fibonacci",
@@ -1373,7 +1386,8 @@
         "0.618": 2313.6434,
         "1.000": 2306.5,
         "1.618": 2294.9434
-      }
+      },
+      "reason": "只测量第 0 到第 24 根的摆动腿回撤，不向全图无限延伸。"
     },
     {
       "kind": "measured_move",
@@ -1391,7 +1405,8 @@
         "time_index": 20,
         "price": 2329.47
       },
-      "target_price": 2342.35
+      "target_price": 2342.35,
+      "reason": "等距测量从入场腿投射到目标区域，范围只覆盖本次信号后的观察窗口。"
     },
     {
       "kind": "three_push",
@@ -1410,33 +1425,40 @@
           "time_index": 29,
           "price": 2327.51
         }
-      ]
+      ],
+      "reason": "三推示例只连接三次实际推动锚点，用来观察通道末端动能是否衰竭。"
     },
     {
       "kind": "trade_marker",
       "id": "entry-marker",
       "label": "入场 2323.03 | 仓位 1",
       "time_index": 17,
+      "start_index": 17,
+      "end_index": 22,
       "price": 2323.03,
       "marker_type": "entry",
       "quantity": 1.0,
-      "reason": "入场标记：突破信号K线高点 2322.93 后，以 2323.03 触发 buy stop；交易员方程给出 6.44 点风险，12.88 点目标回报。"
+      "reason": "订单类型 stop；突破信号K线高点 2322.93 后，以 2323.03 触发 buy stop；交易员方程给出 6.44 点风险，12.88 点目标回报。 信号K线为第 18 根，触发价 2323.03。"
     },
     {
       "kind": "trade_marker",
       "id": "stop-marker",
       "label": "止损 2316.59 | 仓位 1",
       "time_index": 17,
+      "start_index": 17,
+      "end_index": 22,
       "price": 2316.59,
       "marker_type": "stop",
       "quantity": 1.0,
-      "reason": "止损位于信号 K 线另一侧，代表本笔 stop order 的失效价。"
+      "reason": "止损 2316.59 位于信号 K 线另一侧，代表本笔 stop order 的失效价。"
     },
     {
       "kind": "trade_marker",
       "id": "target-marker",
       "label": "止盈 2335.91 | 仓位 1",
       "time_index": 22,
+      "start_index": 17,
+      "end_index": 22,
       "price": 2335.91,
       "marker_type": "target",
       "quantity": 1.0,
@@ -1478,12 +1500,32 @@
     "knowledgeRefs": [
       {
         "artifactType": "setup_dossier",
+        "key": "always_in_pullback",
+        "title": "始终在场回调",
+        "summary": "趋势或紧通道中，回调没有破坏始终在场方向，适合等待顺势信号K线触发。",
+        "sourceRefs": [
+          "brooks-trends"
+        ],
+        "score": 6
+      },
+      {
+        "artifactType": "setup_dossier",
         "key": "breakout_pullback",
         "title": "突破回调",
         "summary": "先有明确突破和跟进，再等待回测突破位后的再次触发。",
         "sourceRefs": [
           "brooks-trading-ranges",
           "brooks-trends"
+        ],
+        "score": 5
+      },
+      {
+        "artifactType": "setup_dossier",
+        "key": "failed_breakout",
+        "title": "失败突破",
+        "summary": "既有区间或关键价位被突破后无法站稳，价格快速回到原结构内。",
+        "sourceRefs": [
+          "brooks-trading-ranges"
         ],
         "score": 5
       },
@@ -1496,26 +1538,6 @@
           "brooks-trends"
         ],
         "score": 5
-      },
-      {
-        "artifactType": "setup_dossier",
-        "key": "always_in_pullback",
-        "title": "始终在场回调",
-        "summary": "趋势或紧通道中，回调没有破坏始终在场方向，适合等待顺势信号K线触发。",
-        "sourceRefs": [
-          "brooks-trends"
-        ],
-        "score": 4
-      },
-      {
-        "artifactType": "setup_dossier",
-        "key": "failed_breakout",
-        "title": "失败突破",
-        "summary": "既有区间或关键价位被突破后无法站稳，价格快速回到原结构内。",
-        "sourceRefs": [
-          "brooks-trading-ranges"
-        ],
-        "score": 4
       },
       {
         "artifactType": "setup_dossier",
@@ -1532,7 +1554,7 @@
       "Context checked before setup label.",
       "Always-in bias derived from replay swing direction.",
       "Model API returned tool calls that were executed by drawing tools.",
-      "Retrieved Brooks refs: breakout_pullback, second_entry, always_in_pullback, failed_breakout, major_trend_reversal.",
+      "Retrieved Brooks refs: always_in_pullback, breakout_pullback, failed_breakout, second_entry, major_trend_reversal.",
       "buy stop stop order，等待信号K线被触发后才入场；触发前不成交. Trader's equation uses 6.44 points risk for 12.88 points reward."
     ],
     "modelUsage": {
@@ -1794,7 +1816,8 @@
               "time_index": 40,
               "price": 2329.0
             }
-          ]
+          ],
+          "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
         },
         {
           "kind": "channel",
@@ -1813,12 +1836,14 @@
                 "time_index": 40,
                 "price": 2329.0
               }
-            ]
+            ],
+            "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
           },
           "parallel_anchor": {
             "time_index": 17,
             "price": 2322.4
-          }
+          },
+          "reason": "以趋势线为基准投射通道，用来判断回调是否仍在多头通道内。"
         },
         {
           "kind": "range_box",
@@ -1827,7 +1852,8 @@
           "start_index": 0,
           "end_index": 12,
           "high": 2316.0,
-          "low": 2306.5
+          "low": 2306.5,
+          "reason": "框出早期回调的时间和价格范围，避免把后续行情误算进同一箱体。"
         }
       ],
       "analysisSummary": "AI marked the always-in trend line, channel projection, and early pullback box before committing to a trade."
@@ -2037,7 +2063,8 @@
             "0.618": 2313.6434,
             "1.000": 2306.5,
             "1.618": 2294.9434
-          }
+          },
+          "reason": "只测量第 0 到第 24 根的摆动腿回撤，不向全图无限延伸。"
         },
         {
           "kind": "trendline",
@@ -2052,7 +2079,8 @@
               "time_index": 40,
               "price": 2329.0
             }
-          ]
+          ],
+          "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
         }
       ],
       "analysisSummary": "stop buy plan used 6.44 points of risk and a 2.0R target while waiting for the signal bar trigger instead of filling before confirmation."
@@ -2248,10 +2276,12 @@
           "id": "entry-marker",
           "label": "入场 2323.03 | 仓位 1",
           "time_index": 17,
+          "start_index": 17,
+          "end_index": 22,
           "price": 2323.03,
           "marker_type": "entry",
           "quantity": 1.0,
-          "reason": "入场标记：突破信号K线高点 2322.93 后，以 2323.03 触发 buy stop；交易员方程给出 6.44 点风险，12.88 点目标回报。"
+          "reason": "订单类型 stop；突破信号K线高点 2322.93 后，以 2323.03 触发 buy stop；交易员方程给出 6.44 点风险，12.88 点目标回报。 信号K线为第 18 根，触发价 2323.03。"
         }
       ],
       "analysisSummary": "Simulated stop order filled only after the signal bar trigger fired."
@@ -2448,6 +2478,8 @@
           "id": "target-marker",
           "label": "止盈 2335.91 | 仓位 1",
           "time_index": 22,
+          "start_index": 17,
+          "end_index": 22,
           "price": 2335.91,
           "marker_type": "target",
           "quantity": 1.0,
@@ -2469,7 +2501,8 @@
             "time_index": 20,
             "price": 2329.47
           },
-          "target_price": 2342.35
+          "target_price": 2342.35,
+          "reason": "等距测量从入场腿投射到目标区域，范围只覆盖本次信号后的观察窗口。"
         }
       ],
       "analysisSummary": "Trade reached target for 2.0R with 14.11 points MFE."
@@ -2678,7 +2711,8 @@
               "time_index": 29,
               "price": 2327.51
             }
-          ]
+          ],
+          "reason": "三推示例只连接三次实际推动锚点，用来观察通道末端动能是否衰竭。"
         },
         {
           "kind": "channel",
@@ -2697,12 +2731,14 @@
                 "time_index": 40,
                 "price": 2329.0
               }
-            ]
+            ],
+            "reason": "连接实际低点和后续趋势确认点，只用于判断当前始终在场多头斜率。"
           },
           "parallel_anchor": {
             "time_index": 17,
             "price": 2322.4
-          }
+          },
+          "reason": "以趋势线为基准投射通道，用来判断回调是否仍在多头通道内。"
         }
       ],
       "analysisSummary": "Review notes that the channel context and measured target were aligned; future invalidation remains a break below the prior swing."
@@ -2872,6 +2908,36 @@
           "主要趋势反转",
           "楔形和三推",
           "失败反转、最终旗形与陷阱"
+        ]
+      },
+      {
+        "id": "brooks-official-glossary",
+        "title": "Brooks Trading Course - Price Action Trading Terms Glossary",
+        "sourceType": "official_web",
+        "themes": [
+          "术语校对",
+          "Signal Bar",
+          "Entry Bar",
+          "Wedge",
+          "Final Flag"
+        ],
+        "chapterRefs": [
+          "official glossary checked 2026-07-01"
+        ]
+      },
+      {
+        "id": "brooks-official-abbreviations",
+        "title": "Brooks Trading Course - Abbreviations",
+        "sourceType": "official_web",
+        "themes": [
+          "术语缩写",
+          "TR",
+          "FBO",
+          "MM",
+          "H2/L2"
+        ],
+        "chapterRefs": [
+          "official abbreviations checked 2026-07-01"
         ]
       }
     ],

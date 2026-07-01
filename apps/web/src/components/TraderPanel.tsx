@@ -54,6 +54,9 @@ export function TraderPanel({
   const planLine = analysis.noTradeReason
     ? translateText(analysis.noTradeReason)
     : translateText(analysis.reasoningSummary);
+  const orderPlan = analysis.noTradeReason
+    ? "本轮不下单"
+    : `${translateText(analysis.entryType)} / 止损 ${formatPrice(analysis.stop)} / 止盈 ${formatPrice(analysis.target)} / 仓位 ${analysis.positionSizeSuggestion}`;
 
   return (
     <section className="trader-panel" aria-label="AI 交易员分析">
@@ -64,6 +67,21 @@ export function TraderPanel({
       </div>
 
       <RunStepList steps={runSteps} />
+
+      <section className="decision-brief" aria-label="当前交易员决策">
+        <div>
+          <span>当前判断</span>
+          <strong>{formatBias(analysis.alwaysInBias)}</strong>
+        </div>
+        <div>
+          <span>Setup</span>
+          <strong>{translateText(analysis.setupCandidate)}</strong>
+        </div>
+        <div>
+          <span>订单计划</span>
+          <strong>{orderPlan}</strong>
+        </div>
+      </section>
 
       <section className="model-api-strip" aria-label="模型 API">
         <div>
@@ -220,16 +238,19 @@ function formatPrice(value: number | null) {
 
 function RunStepList({ steps }: { steps: RunStep[] }) {
   return (
-    <ol className="run-step-list" aria-label="AI执行步骤">
-      {steps.map((step) => (
-        <li key={step.id} className={step.status}>
-          <span>{step.status === "done" ? "✓" : step.status === "running" ? "…" : step.status === "failed" ? "!" : ""}</span>
-          <div>
-            <strong>{step.label}</strong>
-            <small>{step.detail}</small>
-          </div>
-        </li>
-      ))}
-    </ol>
+    <section className="run-step-panel" aria-label="AI执行步骤">
+      <div className="run-step-heading">实时执行流</div>
+      <ol className="run-step-list">
+        {steps.map((step) => (
+          <li key={step.id} className={step.status}>
+            <span>{step.status === "done" ? "✓" : step.status === "running" ? "…" : step.status === "failed" ? "!" : ""}</span>
+            <div>
+              <strong>{step.label}</strong>
+              <small>{step.detail}</small>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

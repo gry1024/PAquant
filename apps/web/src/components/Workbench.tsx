@@ -28,6 +28,7 @@ import type {
   LiveMarketQuote,
   LiveMarketSource,
   ModelProviderChoice,
+  SimulatedOrder,
   TraderProfile,
   WorkbenchFixture
 } from "../lib/workbenchTypes";
@@ -487,6 +488,7 @@ export function Workbench({
               </button>
               <span className={`agent-run-state ${runStatus}`}>{formatRunStatus(runStatus)}</span>
               <span className="model-api-readout">模型 API：{providerModelLabel}</span>
+              <span className="trader-count-readout">策略库：{traderProfiles.length} 名 Brooks setup 交易员</span>
               {!hasActionableMarket ? (
                 <span className="agent-market-gate">AI 交易员需要完整 5 分钟 K 线历史</span>
               ) : null}
@@ -731,6 +733,9 @@ function withOrderChartMarkers(fixture: WorkbenchFixture): WorkbenchFixture {
   const expectedMarkers = new Map<string, TradeMarkerObject>();
   for (const order of fixture.orders) {
     const timeIndex = orderMarkerTimeIndex(fixture, order.id, order.entry);
+    const markerEndIndex = order.execution_plan
+      ? Math.min(fixture.candles.length - 1, order.execution_plan.signal_bar_index + 8)
+      : Math.min(fixture.candles.length - 1, timeIndex + 8);
     const safeId = safeChartObjectId(order.id);
     const candidates: TradeMarkerObject[] = [
       {
@@ -738,30 +743,38 @@ function withOrderChartMarkers(fixture: WorkbenchFixture): WorkbenchFixture {
         id: `${safeId}-entry-marker`,
         label: `入场 ${order.entry.toFixed(2)} | 仓位 ${order.quantity}`,
         time_index: timeIndex,
+        start_index: timeIndex,
+        end_index: markerEndIndex,
         price: order.entry,
         marker_type: "entry",
         quantity: order.quantity,
-        reason: order.reason
+        reason: order.execution_plan
+          ? `订单类型 ${order.order_type}；${order.execution_plan.trigger_condition}；仓位 ${order.quantity}`
+          : order.reason
       },
       {
         kind: "trade_marker",
         id: `${safeId}-stop-marker`,
         label: `止损 ${order.stop.toFixed(2)} | 仓位 ${order.quantity}`,
         time_index: timeIndex,
+        start_index: timeIndex,
+        end_index: markerEndIndex,
         price: order.stop,
         marker_type: "stop",
         quantity: order.quantity,
-        reason: order.reason
+        reason: `止损 ${order.stop.toFixed(2)} 是本笔 ${formatOrderTypeForReason(order.order_type)} 的失效价。`
       },
       {
         kind: "trade_marker",
         id: `${safeId}-target-marker`,
         label: `止盈 ${order.target.toFixed(2)} | 仓位 ${order.quantity}`,
-        time_index: timeIndex,
+        time_index: markerEndIndex,
+        start_index: timeIndex,
+        end_index: markerEndIndex,
         price: order.target,
         marker_type: "target",
         quantity: order.quantity,
-        reason: order.reason
+        reason: `止盈 ${order.target.toFixed(2)} 是本笔订单的 2R 目标价。`
       }
     ];
     for (const marker of candidates) {
@@ -789,6 +802,10 @@ function withOrderChartMarkers(fixture: WorkbenchFixture): WorkbenchFixture {
 }
 
 function orderMarkerTimeIndex(fixture: WorkbenchFixture, orderId: string, entryPrice?: number) {
+  const order = fixture.orders.find((candidate) => candidate.id === orderId);
+  if (order?.execution_plan) {
+    return clampInteger(order.execution_plan.signal_bar_index, 0, fixture.candles.length - 1);
+  }
   const exactOrderStep =
     fixture.tradeReplay.find((step) => step.orderId === orderId && step.stage === "execution") ??
     fixture.tradeReplay.find((step) => step.orderId === orderId);
@@ -870,9 +887,13 @@ function chartObjectIndexes(object: ChartObject): number[] {
     return object.pushes.map((anchor) => anchor.time_index);
   }
   if (object.kind === "trade_marker") {
-    return [object.time_index];
+    return [object.start_index ?? object.time_index, object.time_index, object.end_index ?? object.time_index];
   }
   return [];
+}
+
+function formatOrderTypeForReason(value: SimulatedOrder["order_type"]) {
+  return value === "stop_limit" ? "stop-limit 订单" : `${value} 订单`;
 }
 
 function idleRunSteps(): RunStep[] {

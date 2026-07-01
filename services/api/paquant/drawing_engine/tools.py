@@ -47,6 +47,8 @@ REQUIRED_BROOKS_TOOL_NAMES: set[str] = {
     "snap_to_swing",
 }
 
+MAX_MODEL_DRAWING_BARS = 72
+
 
 class ToolCommand(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -135,10 +137,15 @@ def _execute_command(
         return snap, f"Snapped probe to nearest {snap['kind']} swing.", None
 
     if command.tool == "draw_trendline":
+        start, end = _bounded_anchor_pair(
+            _anchor(args["start"]),
+            _anchor(args["end"]),
+        )
         chart_object = TrendLine(
             id=str(args["id"]),
             label=str(args["label"]),
-            anchors=[_anchor(args["start"]), _anchor(args["end"])],
+            anchors=[start, end],
+            reason=str(args.get("reason") or "趋势线用于限定当前价格行为观察区间。"),
         )
         return (
             {"chart_object": chart_object.model_dump(mode="json")},
@@ -156,6 +163,7 @@ def _execute_command(
             label=str(args["label"]),
             base=base,
             parallel_anchor=_anchor(args["parallel_anchor"]),
+            reason=str(args.get("reason") or "通道用于衡量价格相对趋势线的过冲、欠冲和回调质量。"),
         )
         return (
             {"chart_object": chart_object.model_dump(mode="json")},
@@ -171,6 +179,7 @@ def _execute_command(
             end_index=int(args["end_index"]),
             high=float(args["high"]),
             low=float(args["low"]),
+            reason=str(args.get("reason") or "箱体用于限定回调或交易区间的时间和价格边界。"),
         )
         return (
             {"chart_object": chart_object.model_dump(mode="json")},
@@ -179,14 +188,14 @@ def _execute_command(
         )
 
     if command.tool == "draw_fibonacci":
-        start = _anchor(args["start"])
-        end = _anchor(args["end"])
+        start, end = _bounded_anchor_pair(_anchor(args["start"]), _anchor(args["end"]))
         chart_object = Fibonacci(
             id=str(args["id"]),
             label=str(args["label"]),
             start=start,
             end=end,
             levels=build_fibonacci_levels(start, end),
+            reason=str(args.get("reason") or "斐波那契只用于所选摆动腿的回撤测量。"),
         )
         return (
             {"chart_object": chart_object.model_dump(mode="json")},
@@ -260,6 +269,31 @@ def _execute_command(
 
 def _anchor(payload: dict[str, Any]) -> AnchorPoint:
     return AnchorPoint(time_index=int(payload["time_index"]), price=float(payload["price"]))
+
+
+def _bounded_anchor_pair(start: AnchorPoint, end: AnchorPoint) -> tuple[AnchorPoint, AnchorPoint]:
+    span = abs(end.time_index - start.time_index)
+    if span <= MAX_MODEL_DRAWING_BARS:
+        return start, end
+
+    if end.time_index >= start.time_index:
+        bounded_start_index = end.time_index - MAX_MODEL_DRAWING_BARS
+        return (
+            AnchorPoint(
+                time_index=bounded_start_index,
+                price=line_value_at(start, end, bounded_start_index),
+            ),
+            end,
+        )
+
+    bounded_end_index = end.time_index + MAX_MODEL_DRAWING_BARS
+    return (
+        start,
+        AnchorPoint(
+            time_index=bounded_end_index,
+            price=line_value_at(start, end, bounded_end_index),
+        ),
+    )
 
 
 def _measure_leg_payload(payload: dict[str, Any]) -> dict[str, Any]:

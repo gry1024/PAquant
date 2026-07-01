@@ -15,7 +15,7 @@ test("交易标记有清晰标签底板、价格、仓位和理由文字", () =>
   expect(screen.getAllByText(/入场 2323.03 仓位 1/).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/止损 2316.59/).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/止盈 2335.91/).length).toBeGreaterThan(0);
-  expect(screen.getByText(/理由：突破信号K线高点/)).toBeInTheDocument();
+  expect(screen.getByText(/理由：.*突破信号K线高点/)).toBeInTheDocument();
 
   const labelBackgrounds = container.querySelectorAll(".trade-marker-label-bg");
   expect(labelBackgrounds.length).toBeGreaterThanOrEqual(3);
@@ -26,6 +26,10 @@ test("交易标记有清晰标签底板、价格、仓位和理由文字", () =>
   expect(container.querySelector(".trade-price-line.stop")).toBeInTheDocument();
   expect(container.querySelector(".trade-price-line.target")).toBeInTheDocument();
   expect(container.querySelector(".trade-marker-price-tag.entry")).toBeInTheDocument();
+  const entryLine = container.querySelector(".trade-price-line.entry");
+  expect(entryLine).toHaveAttribute("data-start-candle-index", "17");
+  expect(entryLine).toHaveAttribute("data-end-candle-index", "22");
+  expect(Number(entryLine?.getAttribute("x2")) - Number(entryLine?.getAttribute("x1"))).toBeLessThan(25);
 });
 
 test("drawing overlay keeps projected geometry inside the visible chart viewport", () => {

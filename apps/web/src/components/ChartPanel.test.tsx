@@ -82,6 +82,63 @@ test("keeps trade markers attached to their candle center when the window change
   expect(shiftedEntryX).toBeCloseTo(Number(shiftedEntryCandle?.getAttribute("data-center-x")), 4);
 });
 
+test("draws finite scoped objects instead of full-width overlay lines", () => {
+  const { container } = render(
+    <ChartPanel
+      {...chartPanelProps({
+        chartWindowSize: 24,
+        chartWindowEndIndex: 24
+      })}
+    />
+  );
+
+  const chart = container.querySelector(".native-price-chart") as SVGSVGElement;
+  const chartWidth = Number(chart.getAttribute("data-plot-width"));
+  expect(chartWidth).toBeGreaterThan(800);
+
+  const fibLine = container.querySelector(".native-drawing-line.fib") as SVGLineElement;
+  const entryLine = container.querySelector(".trade-price-line.entry") as SVGLineElement;
+  const entryCandle = container.querySelector('.native-candle[data-candle-index="17"]');
+  const targetCandle = container.querySelector('.native-candle[data-candle-index="22"]');
+
+  expect(fibLine).toBeInTheDocument();
+  expect(entryLine).toBeInTheDocument();
+  expect(Number(fibLine.getAttribute("x2")) - Number(fibLine.getAttribute("x1"))).toBeLessThan(
+    chartWidth
+  );
+  expect(Number(entryLine.getAttribute("x2")) - Number(entryLine.getAttribute("x1"))).toBeLessThan(
+    chartWidth
+  );
+  expect(Number(entryLine.getAttribute("x1"))).toBeCloseTo(
+    Number(entryCandle?.getAttribute("data-center-x")),
+    4
+  );
+  expect(Number(entryLine.getAttribute("x2"))).toBeCloseTo(
+    Number(targetCandle?.getAttribute("data-center-x")),
+    4
+  );
+});
+
+test("renders drawing object reasons as chart-bound metadata", () => {
+  const { container } = render(
+    <ChartPanel
+      {...chartPanelProps({
+        chartWindowSize: 24,
+        chartWindowEndIndex: 24
+      })}
+    />
+  );
+
+  const anchoredObjects = container.querySelectorAll(".anchored-object[data-object-id]");
+  expect(anchoredObjects.length).toBeGreaterThanOrEqual(5);
+  anchoredObjects.forEach((object) => {
+    expect(object.getAttribute("data-reason")).toBeTruthy();
+    expect(object.querySelector("title")?.textContent).toContain(
+      object.getAttribute("data-reason")
+    );
+  });
+});
+
 test("range scrubber controls the native chart window without touching drawing coordinates directly", () => {
   const onWindowEndChange = vi.fn();
   const { container } = render(<ChartPanel {...chartPanelProps({ onWindowEndChange })} />);

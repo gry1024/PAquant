@@ -1,9 +1,13 @@
 :root {
+  --font-ui:
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC",
+    "Source Han Sans SC", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-num:
+    "DIN Alternate", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI",
+    "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   color: #17202a;
   background: #f6f8fb;
-  font-family:
-    Aptos, Inter, "Microsoft YaHei UI", "Microsoft YaHei", ui-sans-serif, system-ui,
-    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --ink: #17202a;
@@ -228,7 +232,7 @@ h2 {
 
 .chart-column {
   display: grid;
-  grid-template-rows: 148px minmax(0, 1fr);
+  grid-template-rows: 82px minmax(0, 1fr);
   gap: 0;
   min-width: 0;
   min-height: 0;
@@ -249,8 +253,9 @@ h2 {
 
 .quote-board {
   display: grid;
-  grid-template-columns: minmax(270px, 1.62fr) repeat(4, minmax(102px, 0.7fr));
+  grid-template-columns: minmax(168px, 1.08fr) repeat(4, minmax(82px, 0.5fr));
   min-width: 0;
+  min-height: 82px;
   border-bottom: 1px solid var(--line);
   background: #ffffff;
 }
@@ -270,9 +275,9 @@ h2 {
 .quote-cell {
   display: grid;
   align-content: center;
-  gap: 7px;
+  gap: 3px;
   min-width: 0;
-  padding: 12px 16px;
+  padding: 8px 10px;
   border: 0;
   border-right: 1px solid var(--line-soft);
   border-radius: 0;
@@ -310,8 +315,8 @@ h2 {
 
 .quote-primary strong {
   color: var(--gold);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 42px;
+  font-family: var(--font-num);
+  font-size: 30px;
   line-height: 1;
 }
 
@@ -327,7 +332,7 @@ h2 {
 
 .quote-primary em {
   color: var(--faint);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 11px;
   font-style: normal;
 }
@@ -376,8 +381,8 @@ h2 {
 
 .quote-cell strong {
   color: var(--ink);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 18px;
+  font-family: var(--font-num);
+  font-size: 15px;
   line-height: 1.15;
 }
 
@@ -664,6 +669,11 @@ h2 {
   stroke-dasharray: 6 4;
 }
 
+.native-drawing-line.channel-base {
+  stroke: var(--cyan);
+  opacity: 0.58;
+}
+
 .native-drawing-line.fib {
   stroke: rgba(184, 135, 0, 0.72);
   stroke-dasharray: 4 3;
@@ -703,6 +713,23 @@ h2 {
   stroke: var(--gold);
   stroke-width: 1.4;
   vector-effect: non-scaling-stroke;
+}
+
+.push-point circle {
+  fill: #ffffff;
+  stroke: var(--violet);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.push-point text {
+  fill: var(--violet);
+  font-size: 11px;
+  font-weight: 760;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-linejoin: round;
+  stroke-width: 3px;
 }
 
 .native-price-chart .trade-price-line {
@@ -967,12 +994,12 @@ h2 {
 
 .agent-control-strip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(116px, 1fr) minmax(116px, 1fr) minmax(126px, 0.72fr);
   align-items: end;
-  gap: 8px;
+  gap: 6px;
   position: relative;
   z-index: 3;
-  padding: 9px 12px 10px;
+  padding: 8px 10px;
   border-width: 0 0 1px;
   border-radius: 0;
   background: #ffffff;
@@ -986,21 +1013,22 @@ h2 {
 
 .model-select span,
 .agent-run-state,
-.model-api-readout {
+.model-api-readout,
+.trader-count-readout {
   color: var(--muted);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 11px;
 }
 
 .model-select select {
   width: 100%;
-  min-height: 34px;
+  min-height: 32px;
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink);
   background: #ffffff;
   padding: 0 9px;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-ui);
   font-size: 11px;
 }
 
@@ -1009,7 +1037,7 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 36px;
+  min-height: 34px;
   border: 1px solid rgba(246, 196, 83, 0.58);
   border-radius: 6px;
   color: #ffffff;
@@ -1022,6 +1050,12 @@ h2 {
 .agent-run-button,
 .agent-run-state,
 .model-api-readout,
+.trader-count-readout,
+.agent-market-gate,
+.agent-run-error {
+  grid-column: auto;
+}
+
 .agent-market-gate,
 .agent-run-error {
   grid-column: 1 / -1;
@@ -1034,11 +1068,12 @@ h2 {
 
 .agent-run-state,
 .model-api-readout,
+.trader-count-readout,
 .agent-market-gate,
 .agent-run-error {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: 22px;
   padding: 3px 7px;
   border: 1px solid var(--line-soft);
   border-radius: 6px;
@@ -1067,7 +1102,7 @@ h2 {
 .data-panel {
   min-width: 0;
   min-height: 0;
-  padding: 10px 12px;
+  padding: 9px 10px;
   border-width: 0 0 1px;
   border-radius: 0;
   background: #ffffff;
@@ -1077,7 +1112,7 @@ h2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: min-content;
-  gap: 8px;
+  gap: 7px;
   overflow: auto;
 }
 
@@ -1107,6 +1142,21 @@ h2 {
   font-weight: 600;
 }
 
+.run-step-panel {
+  display: grid;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  background: #f8fafc;
+}
+
+.run-step-heading {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 760;
+}
+
 .run-step-list {
   display: grid;
   gap: 6px;
@@ -1114,7 +1164,7 @@ h2 {
   margin: 0;
   list-style: none;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .run-step-list li {
@@ -1122,7 +1172,7 @@ h2 {
   grid-template-columns: 18px minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
-  padding: 6px;
+  padding: 6px 7px;
   border: 1px solid var(--line-soft);
   border-radius: 0;
   background: #f7f9fc;
@@ -1136,7 +1186,7 @@ h2 {
   border-radius: 50%;
   color: #ffffff;
   background: #9aa6b2;
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 11px;
   font-weight: 800;
 }
@@ -1167,13 +1217,11 @@ h2 {
 }
 
 .run-step-list small {
-  overflow: hidden;
   margin-top: 2px;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .bias-board {
@@ -1238,6 +1286,40 @@ h2 {
   min-width: 0;
 }
 
+.decision-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.decision-brief div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  background: #ffffff;
+}
+
+.decision-brief div:last-child {
+  grid-column: 1 / -1;
+}
+
+.decision-brief span {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 760;
+}
+
+.decision-brief strong {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .model-api-strip div,
 .thinking-block,
 .support-card {
@@ -1266,7 +1348,7 @@ h2 {
   overflow: hidden;
   margin-top: 3px;
   color: var(--ink);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1297,13 +1379,13 @@ h2 {
 
 .structured-thinking-header span {
   color: var(--muted);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 10.5px;
 }
 
 .thinking-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -1311,7 +1393,7 @@ h2 {
   display: grid;
   align-content: start;
   gap: 5px;
-  min-height: 74px;
+  min-height: 0;
   min-width: 0;
   padding: 8px;
 }
@@ -1340,7 +1422,7 @@ h2 {
 
 .analysis-support-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -1505,13 +1587,13 @@ h2 {
 }
 
 .trader-panel .action-stream {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   max-height: 190px;
   overflow: auto;
 }
 
 .trader-panel .action-stream li {
-  min-height: 58px;
+  min-height: 0;
 }
 
 .action-stream li > span {
@@ -1522,7 +1604,7 @@ h2 {
   border-radius: 50%;
   color: #ffffff;
   background: var(--cyan);
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 10px;
   font-weight: 800;
 }
@@ -1535,7 +1617,7 @@ h2 {
 
 .action-stream strong,
 .action-stream em {
-  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-num);
   font-size: 10px;
   font-style: normal;
 }
@@ -2048,6 +2130,301 @@ h2 {
   padding: 14px;
 }
 
+.book-browser {
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.book-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.book-heading div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.book-heading small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.book-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.44fr) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+}
+
+.book-toc {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 14px 0;
+  border-right: 1px solid var(--line);
+}
+
+.book-toc h2,
+.knowledge-book h2,
+.source-book-map h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.book-toc h2:not(:first-child) {
+  margin-top: 20px;
+}
+
+.book-toc ol {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+}
+
+.book-toc li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.book-toc li > span {
+  color: var(--gold);
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.book-toc strong,
+.setup-book-section h3,
+.case-book-section h3,
+.playbook-book-list h3,
+.concept-paragraphs h3 {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.book-toc p,
+.book-toc em,
+.concept-map span,
+.glossary-book dd,
+.knowledge-book p,
+.setup-book-list li,
+.case-book-section span,
+.source-book-map span {
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.book-toc p {
+  margin-top: 5px;
+}
+
+.book-toc em {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.concept-map,
+.glossary-book,
+.knowledge-book,
+.concept-paragraphs,
+.setup-book-grid,
+.case-book-grid,
+.playbook-book-list {
+  display: grid;
+  gap: 10px;
+}
+
+.concept-map {
+  margin-top: 10px;
+}
+
+.concept-map span {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink);
+  font-weight: 760;
+}
+
+.concept-map em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.glossary-book {
+  margin: 10px 0 0;
+}
+
+.glossary-book div {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.glossary-book dt {
+  display: grid;
+  gap: 3px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.glossary-book code {
+  color: var(--gold);
+  font-family: var(--font-num);
+  font-size: 10.5px;
+}
+
+.glossary-book dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.knowledge-book {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 0 20px 18px;
+}
+
+.book-chapter {
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.book-chapter + .book-chapter,
+.source-book-map {
+  padding-top: 18px;
+}
+
+.book-chapter-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.concept-paragraphs {
+  margin-top: 12px;
+  column-count: 2;
+  column-gap: 24px;
+}
+
+.concept-paragraphs section {
+  display: inline-block;
+  width: 100%;
+  padding: 0 0 12px;
+  break-inside: avoid;
+}
+
+.concept-paragraphs h3,
+.setup-book-section h3,
+.case-book-section h3,
+.playbook-book-list h3 {
+  margin: 0 0 5px;
+}
+
+.concept-paragraphs ul,
+.setup-book-list ul,
+.playbook-book-list ol {
+  margin: 7px 0 0;
+  padding-left: 18px;
+}
+
+.concept-paragraphs li,
+.playbook-book-list li {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.setup-book-section {
+  padding-top: 14px;
+}
+
+.setup-book-section + .setup-book-section {
+  margin-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.setup-book-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.setup-book-list {
+  min-width: 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.setup-book-list h4 {
+  margin: 0;
+  color: var(--gold);
+  font-size: 12px;
+}
+
+.case-book-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.case-book-section {
+  min-width: 0;
+}
+
+.case-book-section strong,
+.case-book-section span {
+  display: block;
+  margin-top: 6px;
+}
+
+.case-book-section strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.playbook-book-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.playbook-book-list section {
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.source-book-map p {
+  display: grid;
+  gap: 3px;
+  padding: 10px 0 0;
+  margin: 0;
+}
+
 .knowledge-layout {
   display: grid;
   grid-template-columns: minmax(260px, 0.62fr) minmax(0, 1.38fr);
@@ -2339,10 +2716,28 @@ h2 {
 
   .trader-atlas-view,
   .knowledge-layout,
+  .book-layout,
   .trader-profile-hero,
   .atlas-grid,
   .knowledge-columns,
-  .knowledge-grid {
+  .knowledge-grid,
+  .setup-book-grid,
+  .case-book-grid,
+  .playbook-book-list {
     grid-template-columns: 1fr;
+  }
+
+  .book-toc {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding-right: 0;
+  }
+
+  .knowledge-book {
+    padding-left: 0;
+  }
+
+  .concept-paragraphs {
+    column-count: 1;
   }
 }
